@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- Home page -->
+  <url>
+    <loc>https://shippinglabelcrop.in/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- PDF Viewer -->
+  <url>
+    <loc>https://shippinglabelcrop.in/PdfViewer</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- E-Commerce Cropper -->
+  <url>
+    <loc>https://shippinglabelcrop.in/E-CommerceCropper</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Flipkart Cropper -->
+  <url>
+    <loc>https://shippinglabelcrop.in/FlipkartCropper</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Meesho Cropper -->
+  <url>
+    <loc>https://shippinglabelcrop.in/MeshooCropper</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- JioMart Cropper -->
+  <url>
+    <loc>https://shippinglabelcrop.in/JioMartCropper</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Contact Us -->
+  <url>
+    <loc>https://shippinglabelcrop.in/ContactUs</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+
+</urlset>
