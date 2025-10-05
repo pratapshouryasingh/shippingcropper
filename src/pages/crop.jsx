@@ -8,23 +8,25 @@ import { Helmet } from "react-helmet";
 import { 
   FiUpload, FiDownload, FiCrop, FiX, FiChevronLeft, 
   FiChevronRight, FiInfo, FiCheck, FiAlertCircle, FiLoader, FiFile,
-  FiGrid, FiType, FiTrash2, FiFileText, FiEye, FiEyeOff
+  FiGrid, FiType, FiTrash2, FiFileText, FiEye, FiEyeOff,
+  FiPlus, FiMinus
 } from "react-icons/fi";
 
 const PdfCropper = () => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const fileInputRef = useRef(null);
-  const [pdfDoc, setPdfDoc] = useState(null);
+  const [pdfDocs, setPdfDocs] = useState([]);
+  const [currentPdfIndex, setCurrentPdfIndex] = useState(0);
   const [pageNum, setPageNum] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [cropBox, setCropBox] = useState(null);
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCropping, setIsCropping] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewUrls, setPreviewUrls] = useState([]);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [originalPageSize, setOriginalPageSize] = useState({ width: 0, height: 0 });
   const [pagePreviews, setPagePreviews] = useState([]);
@@ -33,11 +35,14 @@ const PdfCropper = () => {
   const [selectionOpacity, setSelectionOpacity] = useState(0.2);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadSpeed, setUploadSpeed] = useState(null);
-  const [downloadUrl, setDownloadUrl] = useState(null);
-  const [downloadFilename, setDownloadFilename] = useState("");
+  const [downloadUrls, setDownloadUrls] = useState([]);
+  const [downloadFilenames, setDownloadFilenames] = useState([]);
   
   const { user, isLoaded } = useUser();
   const { openSignIn } = useClerk();
+
+  // Get current PDF doc
+  const currentPdfDoc = pdfDocs[currentPdfIndex];
 
   useEffect(() => {
     const updateContainerSize = () => {
@@ -53,41 +58,60 @@ const PdfCropper = () => {
     return () => window.removeEventListener("resize", updateContainerSize);
   }, []);
 
-  // Load PDF when file changes
+  // Load PDFs when files change
   useEffect(() => {
-    if (!file) {
-      setPdfDoc(null);
+    if (!files || files.length === 0) {
+      setPdfDocs([]);
+      setCurrentPdfIndex(0);
       setPageNum(1);
       setTotalPages(0);
       setCropBox(null);
       setPagePreviews([]);
       setUploadProgress(0);
       setUploadSpeed(null);
-      setDownloadUrl(null);
-      setDownloadFilename("");
+      setDownloadUrls([]);
+      setDownloadFilenames([]);
       return;
     }
     
-    const loadPdf = async () => {
+    const loadPdfs = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const typedArray = new Uint8Array(await file.arrayBuffer());
-        const pdf = await pdfjsLib.getDocument({ data: typedArray }).promise;
-        setPdfDoc(pdf);
-        setTotalPages(pdf.numPages);
-        setPageNum(1);
+        const pdfPromises = files.map(async (file) => {
+          const typedArray = new Uint8Array(await file.arrayBuffer());
+          return await pdfjsLib.getDocument({ data: typedArray }).promise;
+        });
         
-        // Generate previews for all pages
-        generatePagePreviews(pdf);
+        const loadedPdfs = await Promise.all(pdfPromises);
+        setPdfDocs(loadedPdfs);
+        setCurrentPdfIndex(0);
+        
+        // Generate previews for first PDF
+        if (loadedPdfs.length > 0) {
+          setTotalPages(loadedPdfs[0].numPages);
+          setPageNum(1);
+          generatePagePreviews(loadedPdfs[0]);
+        }
       } catch (err) {
-        setError("Failed to load PDF. Please try another file.");
+        setError("Failed to load PDFs. Please try other files.");
         console.error(err);
       }
       setIsLoading(false);
     };
-    loadPdf();
-  }, [file]);
+    loadPdfs();
+  }, [files]);
+
+  // When current PDF index changes, update the displayed PDF
+  useEffect(() => {
+    if (pdfDocs.length > 0 && currentPdfIndex < pdfDocs.length) {
+      const currentDoc = pdfDocs[currentPdfIndex];
+      setTotalPages(currentDoc.numPages);
+      setPageNum(1);
+      generatePagePreviews(currentDoc);
+      setCropBox(null); // Reset crop box when switching PDFs
+    }
+  }, [currentPdfIndex, pdfDocs]);
 
   // Generate thumbnails for all pages
   const generatePagePreviews = async (pdf) => {
@@ -117,10 +141,10 @@ const PdfCropper = () => {
 
   // Render PDF page
   useEffect(() => {
-    if (!pdfDoc || containerSize.width === 0) return;
+    if (!currentPdfDoc || containerSize.width === 0) return;
     const renderPage = async () => {
       try {
-        const page = await pdfDoc.getPage(pageNum);
+        const page = await currentPdfDoc.getPage(pageNum);
         const viewport = page.getViewport({ scale: 1.0 });
         
         // Store original page size for coordinate conversion
@@ -139,7 +163,7 @@ const PdfCropper = () => {
         canvas.width = scaledViewport.width;
         
         // Clear canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(0, 0, canvas.width, canvas.width);
         
         // Render PDF page
         await page.render({ 
@@ -162,146 +186,150 @@ const PdfCropper = () => {
       }
     };
     renderPage();
-  }, [pdfDoc, pageNum, containerSize]);
+  }, [currentPdfDoc, pageNum, containerSize]);
 
-const handleCrop = async () => {
-  if (!isLoaded) return;
-  if (!user) {
-    openSignIn({ redirectUrl: window.location.href });
-    return;
-  }
-  if (!file || !cropBox || !pdfDoc) return;
-
-  setIsCropping(true);
-  setError(null);
-  setSuccess(null);
-  setUploadProgress(0);
-  setUploadSpeed(null);
-  setDownloadUrl(null);
-  setDownloadFilename("");
-
-  try {
-    const page = await pdfDoc.getPage(pageNum);
-    const viewport = page.getViewport({ scale: 1 });
-    
-    const canvas = canvasRef.current;
-    const canvasWidth = canvas.width;
-    const canvasHeight = canvas.height;
-
-    const scaleX = viewport.width / canvasWidth;
-    const scaleY = viewport.height / canvasHeight;
-
-    let pdfCoords = {
-      x: Math.round(cropBox.x * scaleX),
-      y: Math.round((canvasHeight - (cropBox.y + cropBox.height)) * scaleY),
-      width: Math.round(cropBox.width * scaleX),
-      height: Math.round(cropBox.height * scaleY),
-      canvasWidth: viewport.width,
-      canvasHeight: viewport.height,
-      page: pageNum
-    };
-
-    // Clamp values to be inside PDF bounds
-    pdfCoords.x = Math.max(0, pdfCoords.x);
-    pdfCoords.y = Math.max(0, pdfCoords.y);
-
-    if (pdfCoords.x + pdfCoords.width > viewport.width) {
-      pdfCoords.width = viewport.width - pdfCoords.x;
+  const handleCrop = async () => {
+    if (!isLoaded) return;
+    if (!user) {
+      openSignIn({ redirectUrl: window.location.href });
+      return;
     }
-    if (pdfCoords.y + pdfCoords.height > viewport.height) {
-      pdfCoords.height = viewport.height - pdfCoords.y;
-    }
+    if (!files || files.length === 0 || !cropBox || !currentPdfDoc) return;
 
-    if (pdfCoords.width <= 0 || pdfCoords.height <= 0) {
-      throw new Error("Invalid crop box. Please select a valid area inside the page.");
-    }
+    setIsCropping(true);
+    setError(null);
+    setSuccess(null);
+    setUploadProgress(0);
+    setUploadSpeed(null);
+    setDownloadUrls([]);
+    setDownloadFilenames([]);
 
-    const cropData = {
-      crop: pdfCoords,
-      applyTo: "all"
-    };
+    try {
+      const page = await currentPdfDoc.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 1 });
+      
+      const canvas = canvasRef.current;
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
 
-    const formData = new FormData();
-    formData.append("files", file);
-    formData.append("settings", JSON.stringify(cropData));
-    formData.append("userId", user.id);
+      const scaleX = viewport.width / canvasWidth;
+      const scaleY = viewport.height / canvasHeight;
 
-    const startTime = Date.now();
+      let pdfCoords = {
+        x: Math.round(cropBox.x * scaleX),
+        y: Math.round((canvasHeight - (cropBox.y + cropBox.height)) * scaleY),
+        width: Math.round(cropBox.width * scaleX),
+        height: Math.round(cropBox.height * scaleY),
+        canvasWidth: viewport.width,
+        canvasHeight: viewport.height,
+        page: pageNum
+      };
 
-    // FIX: Use the correct endpoint - remove /upload if route is mounted at /api/cropper
-    const res = await axios.post(
-      `${import.meta.env.VITE_API_URL}/api/cropper`, // Changed from /api/cropper/upload to /api/cropper
-      formData,
-      { 
-        onUploadProgress: (progressEvent) => {
-          const percent = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-          setUploadProgress(percent);
+      // Clamp values to be inside PDF bounds
+      pdfCoords.x = Math.max(0, pdfCoords.x);
+      pdfCoords.y = Math.max(0, pdfCoords.y);
 
-          const elapsed = (Date.now() - startTime) / 1000; 
-          const speed = (progressEvent.loaded / 1024 / elapsed).toFixed(2);
-          setUploadSpeed(speed);
+      if (pdfCoords.x + pdfCoords.width > viewport.width) {
+        pdfCoords.width = viewport.width - pdfCoords.x;
+      }
+      if (pdfCoords.y + pdfCoords.height > viewport.height) {
+        pdfCoords.height = viewport.height - pdfCoords.y;
+      }
+
+      if (pdfCoords.width <= 0 || pdfCoords.height <= 0) {
+        throw new Error("Invalid crop box. Please select a valid area inside the page.");
+      }
+
+      const cropData = {
+        crop: pdfCoords,
+        applyTo: "all"
+      };
+
+      const formData = new FormData();
+      
+      // Append all files at once
+      files.forEach(file => {
+        formData.append("files", file);
+      });
+      
+      formData.append("settings", JSON.stringify(cropData));
+      formData.append("userId", user.id);
+
+      const startTime = Date.now();
+
+      const res = await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/cropper`,
+        formData,
+        { 
+          onUploadProgress: (progressEvent) => {
+            const percent = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            setUploadProgress(percent);
+
+            const elapsed = (Date.now() - startTime) / 1000; 
+            const speed = (progressEvent.loaded / 1024 / elapsed).toFixed(2);
+            setUploadSpeed(speed);
+          }
         }
-      }
-    );
+      );
 
-    if (res.data.success && res.data.outputs && res.data.outputs.length > 0) {
-      const output = res.data.outputs[0];
-      const fullDownloadUrl = `${import.meta.env.VITE_API_URL}${output.url}`;
-      
-      setDownloadUrl(fullDownloadUrl);
-      setDownloadFilename(output.name);
-      setSuccess("PDF cropped successfully! The same crop area has been applied to all pages.");
-      
-      // Create preview from the download URL
-      try {
-        const previewResponse = await axios.get(fullDownloadUrl, { responseType: 'blob' });
-        const blob = new Blob([previewResponse.data], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        setPreviewUrl(url);
-      } catch (previewError) {
-        console.warn("Could not create preview:", previewError);
+      if (res.data.success && res.data.outputs && res.data.outputs.length > 0) {
+        const outputs = res.data.outputs;
+        const urls = outputs.map(output => `${import.meta.env.VITE_API_URL}${output.url}`);
+        const filenames = outputs.map(output => output.name);
+        
+        setDownloadUrls(urls);
+        setDownloadFilenames(filenames);
+        setSuccess(`Successfully cropped ${files.length} PDF file(s)! The same crop area has been applied to all pages.`);
+        
+        // Create previews from download URLs
+        const previewPromises = urls.map(async (url, index) => {
+          try {
+            const previewResponse = await axios.get(url, { responseType: 'blob' });
+            const blob = new Blob([previewResponse.data], { type: 'application/pdf' });
+            return URL.createObjectURL(blob);
+          } catch (previewError) {
+            console.warn(`Could not create preview for file ${index}:`, previewError);
+            return null;
+          }
+        });
+        
+        const previews = await Promise.all(previewPromises);
+        setPreviewUrls(previews.filter(url => url !== null));
+      } else {
+        throw new Error("No output files generated");
       }
-    } else {
-      throw new Error("No output files generated");
-    }
-    
-  } catch (err) {
-    setError(err.response?.data?.error || err.message || "Crop operation failed. Please try again.");
-    console.error("Crop error:", err);
-  }
-  setIsCropping(false);
-  setUploadProgress(0);
-  setUploadSpeed(null);
-};
-
-  const handleDownload = () => {
-    if (downloadUrl) {
-      // Open download in new tab
-      window.open(downloadUrl, '_blank');
       
-      // Alternative: Trigger download programmatically
-      // handleUrlDownload(downloadUrl, downloadFilename);
-    } else if (previewUrl) {
-      // Fallback to preview URL download
-      const a = document.createElement("a");
-      a.href = previewUrl;
-      a.download = downloadFilename || `cropped_${file.name}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || "Crop operation failed. Please try again.");
+      console.error("Crop error:", err);
     }
+    setIsCropping(false);
+    setUploadProgress(0);
+    setUploadSpeed(null);
   };
 
-  const handleUrlDownload = (url, filename) => {
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.target = "_blank";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const handleDownload = (index = null) => {
+    if (index !== null && downloadUrls[index]) {
+      // Download specific file
+      window.open(downloadUrls[index], '_blank');
+    } else if (downloadUrls.length > 0) {
+      // Download all files
+      downloadUrls.forEach((url, idx) => {
+        window.open(url, '_blank');
+      });
+    } else if (previewUrls.length > 0) {
+      // Fallback to preview URLs
+      previewUrls.forEach((url, idx) => {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = downloadFilenames[idx] || `cropped_${files[idx]?.name}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      });
+    }
   };
 
   const handleDrop = useCallback((e) => {
@@ -310,17 +338,17 @@ const handleCrop = async () => {
     setSuccess(null);
     setUploadProgress(0);
     setUploadSpeed(null);
-    setDownloadUrl(null);
-    setDownloadFilename("");
+    setDownloadUrls([]);
+    setDownloadFilenames([]);
     
     const droppedFiles = Array.from(e.dataTransfer.files).filter(
       file => file.type === "application/pdf"
     );
     
     if (droppedFiles.length > 0) {
-      setFile(droppedFiles[0]); // Only take the first file
+      setFiles(droppedFiles);
     } else {
-      setError("Please upload a valid PDF file.");
+      setError("Please upload valid PDF files.");
     }
   }, []);
 
@@ -330,29 +358,57 @@ const handleCrop = async () => {
     );
     
     if (selectedFiles.length > 0) {
-      setFile(selectedFiles[0]); // Only take the first file
+      setFiles(selectedFiles);
     } else {
-      setError("Please select a valid PDF file.");
+      setError("Please select valid PDF files.");
     }
     
     // Reset the input
     e.target.value = null;
   };
 
-  const removeFile = () => {
-    setFile(null);
-    setPdfDoc(null);
+  const removeFile = (index = null) => {
+    if (index === null) {
+      // Remove all files
+      setFiles([]);
+      setPdfDocs([]);
+      setCurrentPdfIndex(0);
+    } else {
+      // Remove specific file
+      const newFiles = files.filter((_, i) => i !== index);
+      const newPdfDocs = pdfDocs.filter((_, i) => i !== index);
+      setFiles(newFiles);
+      setPdfDocs(newPdfDocs);
+      
+      // Adjust current index if needed
+      if (currentPdfIndex >= newFiles.length) {
+        setCurrentPdfIndex(Math.max(0, newFiles.length - 1));
+      }
+    }
+    
     setCropBox(null);
     setError(null);
     setSuccess(null);
-    setPreviewUrl(null);
+    setPreviewUrls([]);
     setPageNum(1);
     setTotalPages(0);
     setPagePreviews([]);
     setUploadProgress(0);
     setUploadSpeed(null);
-    setDownloadUrl(null);
-    setDownloadFilename("");
+    setDownloadUrls([]);
+    setDownloadFilenames([]);
+  };
+
+  const addMoreFiles = (e) => {
+    const selectedFiles = Array.from(e.target.files).filter(
+      file => file.type === "application/pdf"
+    );
+    
+    if (selectedFiles.length > 0) {
+      setFiles(prev => [...prev, ...selectedFiles]);
+    }
+    
+    e.target.value = null;
   };
 
   const goToPreviousPage = () => {
@@ -367,8 +423,24 @@ const handleCrop = async () => {
     }
   };
 
+  const goToPreviousPdf = () => {
+    if (currentPdfIndex > 0) {
+      setCurrentPdfIndex(currentPdfIndex - 1);
+    }
+  };
+
+  const goToNextPdf = () => {
+    if (currentPdfIndex < files.length - 1) {
+      setCurrentPdfIndex(currentPdfIndex + 1);
+    }
+  };
+
   const handlePageSelect = (pageNumber) => {
     setPageNum(pageNumber);
+  };
+
+  const handlePdfSelect = (index) => {
+    setCurrentPdfIndex(index);
   };
 
   // Calculate PDF coordinates for display
@@ -424,7 +496,7 @@ const handleCrop = async () => {
                 <FiFile className="text-indigo-200" />
                 PDF Cropper
               </h1>
-              <p className="text-indigo-100 mt-2">Upload a PDF, select the area to crop, and download. The same crop will be applied to all pages.</p>
+              <p className="text-indigo-100 mt-2">Upload multiple PDFs, select the area to crop, and download. The same crop will be applied to all pages.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button
@@ -449,66 +521,121 @@ const handleCrop = async () => {
           {/* File Upload Area */}
           <div
             className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-lg w-full transition-all duration-200 ${
-              file ? "border-gray-300 bg-gray-50" : "border-indigo-400 bg-indigo-50 hover:bg-indigo-100"
+              files.length > 0 ? "border-gray-300 bg-gray-50" : "border-indigo-400 bg-indigo-50 hover:bg-indigo-100"
             }`}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
           >
-            {!file ? (
+            {files.length === 0 ? (
               <div className="flex flex-col items-center space-y-4 text-center">
                 <FiUpload className="text-4xl text-indigo-500" />
-                <p className="text-gray-600 text-lg">Drag & drop a PDF here, or</p>
+                <p className="text-gray-600 text-lg">Drag & drop PDFs here, or</p>
                 <button 
                   onClick={() => fileInputRef.current?.click()}
                   className="px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg cursor-pointer flex items-center gap-2 transition-colors shadow-md"
                 >
                   <FiUpload />
-                  Browse File
+                  Browse Files
                 </button>
-                <p className="text-sm text-gray-500">Max file size: 50MB</p>
+                <p className="text-sm text-gray-500">Max file size: 50MB each</p>
               </div>
             ) : (
               <>
                 {isLoading ? (
                   <div className="flex flex-col items-center py-12">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
-                    <p className="mt-4 text-gray-600">Loading PDF...</p>
+                    <p className="mt-4 text-gray-600">Loading PDFs...</p>
                   </div>
                 ) : (
                   <div className="w-full flex flex-col items-center space-y-6">
-                    {/* File Info */}
-                    <div className="w-full flex justify-between items-center p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
-                      <div className="flex items-center gap-2 truncate">
-                        <FiFileText className="text-indigo-500 flex-shrink-0" />
-                        <span className="truncate font-medium" title={file.name}>
-                          {formatFileName(file.name)}
-                        </span>
-                        {downloadUrl && (
-                          <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">
-                            Ready to Download
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {downloadUrl && (
+                    {/* File List */}
+                    <div className="w-full space-y-3">
+                      <div className="flex justify-between items-center">
+                        <h3 className="font-semibold text-gray-800">Selected Files ({files.length})</h3>
+                        <div className="flex gap-2">
                           <button
-                            onClick={handleDownload}
-                            className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg flex items-center gap-1 transition-colors shadow-sm text-sm"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="px-3 py-1 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg flex items-center gap-1 text-sm transition-colors shadow-sm"
                           >
-                            <FiDownload size={14} />
-                            <span className="hidden sm:inline">Download</span>
+                            <FiPlus size={14} />
+                            Add More
                           </button>
-                        )}
-                        <button
-                          onClick={removeFile}
-                          className="p-2 rounded-lg bg-white border border-gray-300 hover:bg-red-50 text-red-600 transition-colors shadow-sm flex items-center gap-2"
-                          title="Remove file"
-                        >
-                          <FiTrash2 />
-                          <span className="hidden sm:inline">Remove</span>
-                        </button>
+                          <button
+                            onClick={() => removeFile()}
+                            className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg flex items-center gap-1 text-sm transition-colors shadow-sm"
+                          >
+                            <FiTrash2 size={14} />
+                            Clear All
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                        {files.map((file, index) => (
+                          <div 
+                            key={index}
+                            className={`flex justify-between items-center p-3 rounded-lg border transition-all cursor-pointer ${
+                              currentPdfIndex === index 
+                                ? "bg-indigo-50 border-indigo-300 shadow-sm" 
+                                : "bg-white border-gray-200 hover:bg-gray-50"
+                            }`}
+                            onClick={() => handlePdfSelect(index)}
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <FiFileText className={`flex-shrink-0 ${
+                                currentPdfIndex === index ? "text-indigo-500" : "text-gray-500"
+                              }`} />
+                              <span 
+                                className={`truncate text-sm ${
+                                  currentPdfIndex === index ? "font-medium text-indigo-700" : "text-gray-700"
+                                }`}
+                                title={file.name}
+                              >
+                                {formatFileName(file.name)}
+                              </span>
+                              {downloadUrls[index] && (
+                                <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">
+                                  Ready
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeFile(index);
+                              }}
+                              className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                              title="Remove file"
+                            >
+                              <FiX size={16} />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     </div>
+
+                    {/* PDF Navigation */}
+                    {files.length > 1 && (
+                      <div className="flex items-center justify-center gap-4 p-3 bg-gray-50 rounded-lg w-full">
+                        <button
+                          onClick={goToPreviousPdf}
+                          disabled={currentPdfIndex <= 0}
+                          className="p-2 rounded-lg bg-white border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                        >
+                          <FiChevronLeft />
+                        </button>
+                        <span className="text-gray-700 font-medium bg-white px-4 py-2 rounded-md border border-gray-300 shadow-sm">
+                          File {currentPdfIndex + 1} of {files.length}
+                        </span>
+                        <button
+                          onClick={goToNextPdf}
+                          disabled={currentPdfIndex >= files.length - 1}
+                          className="p-2 rounded-lg bg-white border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                        >
+                          <FiChevronRight />
+                        </button>
+                      </div>
+                    )}
 
                     {/* Upload Progress */}
                     {isCropping && uploadProgress > 0 && (
@@ -658,24 +785,36 @@ const handleCrop = async () => {
                         {isCropping ? (
                           <>
                             <FiLoader className="animate-spin" />
-                            Processing...
+                            Processing {files.length} file(s)...
                           </>
                         ) : (
                           <>
                             <FiCrop />
-                            Crop All Pages
+                            Crop All {files.length} PDF(s)
                           </>
                         )}
                       </button>
                       
-                      {downloadUrl && (
-                        <button 
-                          onClick={handleDownload}
-                          className="px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg flex items-center gap-2 transition-colors shadow-md"
-                        >
-                          <FiDownload />
-                          Download Cropped PDF
-                        </button>
+                      {downloadUrls.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          <button 
+                            onClick={() => handleDownload()}
+                            className="px-4 py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg flex items-center gap-2 transition-colors shadow-md"
+                          >
+                            <FiDownload />
+                            Download All
+                          </button>
+                          {downloadUrls.map((url, index) => (
+                            <button 
+                              key={index}
+                              onClick={() => handleDownload(index)}
+                              className="px-4 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg flex items-center gap-2 transition-colors shadow-md text-sm"
+                            >
+                              <FiDownload size={14} />
+                              File {index + 1}
+                            </button>
+                          ))}
+                        </div>
                       )}
                     </div>
 
@@ -776,7 +915,18 @@ const handleCrop = async () => {
             type="file"
             accept="application/pdf"
             onChange={handleFileSelect}
+            multiple // Allow multiple file selection
             className="hidden"
+          />
+          
+          {/* Hidden input for adding more files */}
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={addMoreFiles}
+            multiple
+            className="hidden"
+            id="add-more-files"
           />
         </div>
 
@@ -788,20 +938,20 @@ const handleCrop = async () => {
           </h3>
           <ol className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
             <li className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-              <div className="font-semibold text-indigo-600 mb-1">1. Upload PDF</div>
-              <p className="text-gray-600">Drag & drop or browse to select a PDF file</p>
+              <div className="font-semibold text-indigo-600 mb-1">1. Upload PDFs</div>
+              <p className="text-gray-600">Drag & drop or browse to select multiple PDF files</p>
             </li>
             <li className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
               <div className="font-semibold text-indigo-600 mb-1">2. Select Area</div>
-              <p className="text-gray-600">Drag and resize the selection box</p>
+              <p className="text-gray-600">Drag and resize the selection box on any file</p>
             </li>
             <li className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-              <div className="font-semibold text-indigo-600 mb-1">3. Crop All Pages</div>
-              <p className="text-gray-600">Apply the same crop to every page</p>
+              <div className="font-semibold text-indigo-600 mb-1">3. Crop All Files</div>
+              <p className="text-gray-600">Apply the same crop to every page of all files</p>
             </li>
             <li className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
               <div className="font-semibold text-indigo-600 mb-1">4. Download</div>
-              <p className="text-gray-600">Get your cropped PDF file</p>
+              <p className="text-gray-600">Get all your cropped PDF files</p>
             </li>
           </ol>
         </div>

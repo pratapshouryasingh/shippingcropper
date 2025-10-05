@@ -1,7 +1,7 @@
 import axios from "axios";
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Helmet } from "react-helmet";
 import { useUser, useClerk } from "@clerk/clerk-react";
 import Cookies from "js-cookie";
@@ -31,13 +31,37 @@ const FlipkartCropper = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedFiles, setProcessedFiles] = useState([]);
   const [error, setError] = useState("");
-  const [uploadProgress, setUploadProgress] = useState(0); 
-  const [uploadSpeed, setUploadSpeed] = useState(null);    
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Persist settings to cookie whenever it changes
   useEffect(() => {
     Cookies.set("flipkart_settings", JSON.stringify(settings), { expires: 7 });
   }, [settings]);
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const newFiles = Array.from(e.dataTransfer.files).filter(
+      (file) => file.type === "application/pdf"
+    );
+    if (newFiles.length > 0) {
+      setFiles((prev) => [...prev, ...newFiles]);
+      setError("");
+    } else {
+      setError("Please upload valid PDF files");
+    }
+  };
 
   const handleFileChange = (e) => {
     const newFiles = Array.from(e.target.files).filter(
@@ -73,15 +97,12 @@ const FlipkartCropper = () => {
     setError("");
     setProcessedFiles([]);
     setUploadProgress(0);
-    setUploadSpeed(null);
 
     try {
       const formData = new FormData();
       files.forEach((file) => formData.append("files", file));
       formData.append("userId", user.id);
       formData.append("settings", JSON.stringify(settings));
-
-      const startTime = Date.now();
 
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/flipkart`,
@@ -93,10 +114,6 @@ const FlipkartCropper = () => {
               (progressEvent.loaded * 100) / progressEvent.total
             );
             setUploadProgress(percent);
-
-            const elapsed = (Date.now() - startTime) / 1000; 
-            const speed = (progressEvent.loaded / 1024 / elapsed).toFixed(2);
-            setUploadSpeed(speed);
           },
         }
       );
@@ -108,7 +125,6 @@ const FlipkartCropper = () => {
     } finally {
       setIsProcessing(false);
       setUploadProgress(0);
-      setUploadSpeed(null);
     }
   };
 
@@ -117,75 +133,54 @@ const FlipkartCropper = () => {
     setProcessedFiles([]);
     setError("");
     setUploadProgress(0);
-    setUploadSpeed(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  return (
-    <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8 ">
-      <Helmet>
-        <title>Flipkart Label Cropper | Free PDF Invoice & Label Processing Tool</title>
-        <meta 
-          name="description" 
-          content="Crop, resize, and process Flipkart shipping labels and invoices easily. Our free Flipkart cropper tool helps sellers save time and streamline e-commerce operations." 
-        />
-        <meta 
-          name="keywords" 
-          content="Flipkart label cropper, Flipkart invoice tool, crop Flipkart PDF, Flipkart seller tools, e-commerce PDF crop, Flipkart shipping label resize" 
-        />
-        <link rel="canonical" href="https://www.shippinglabelcrop.in/FlipkartCropper" />
-        <meta property="og:title" content="Flipkart Label Cropper | Free PDF Invoice Tool" />
-        <meta property="og:description" content="Free Flipkart PDF label & invoice cropper. Process your Flipkart seller invoices with ease." />
-        <meta property="og:url" content="https://www.shippinglabelcrop.in/FlipkartCropper" />
-        <meta property="og:type" content="website" />
-        <meta property="og:image" content="https://www.shippinglabelcrop.in/preview-flipkart.png" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Flipkart Label Cropper | Free PDF Invoice Tool" />
-        <meta name="twitter:description" content="Crop & process Flipkart PDF invoices and labels instantly." />
-        <meta name="twitter:image" content="https://www.shippinglabelcrop.in/preview-flipkart.png" />
-      </Helmet>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5 }}
-        className="max-w-7xl mx-auto"
-      >
-        <div className="bg-white shadow-xl rounded-2xl overflow-hidden transform transition-all duration-300">
-          <div className="md:flex">
-            {/* Left - Main Content */}
-            <div className="md:w-2/3 p-8">
-              <div className="flex justify-between items-center mb-8">
-                <h1 className="text-3xl font-extrabold text-gray-900 flex items-center">
-                  <span className="bg-blue-600 text-white rounded-xl px-5 py-3 mr-3">
-                    F
-                  </span>
-                  Flipkart Label Cropper
-                </h1>
-                <button
-                  onClick={() => navigate(0)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
+  const settingLabels = {
+    courier_sort: "Sort by Courier",
+    sku_sort: "Sort by SKU", 
+    soldBy_sort: "Sort by Seller",
+    add_date_on_top: "Add Date on Top",
+    keep_invoice: "Keep Invoice Copy",
+    sku_order_count: "Show Order Count"
+  };
 
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-8 px-4 sm:px-6 lg:px-8 mt-20">
+      <Helmet>
+        <title>Flipkart Label Cropper | Free PDF Processing Tool</title>
+        <meta name="description" content="Crop and process Flipkart shipping labels and invoices easily." />
+      </Helmet>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-6xl mx-auto"
+      >
+        {/* Header - Compact */}
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <span className="text-xl font-bold text-white">F</span>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Flipkart Label Cropper</h1>
+          <p className="text-gray-600">Process Flipkart PDF labels instantly</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Content - Compact */}
+          <div className="lg:col-span-2">
+            <motion.div className="bg-white rounded-2xl shadow-xl p-6">
               {processedFiles.length === 0 ? (
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* File Upload Area */}
-                  <div className="relative border-4 border-dashed border-blue-200 rounded-xl p-8 text-center bg-blue-50 hover:bg-blue-100 transition-colors">
+                  {/* Compact File Upload */}
+                  <div 
+                    className={`relative border-3 border-dashed rounded-xl p-8 text-center transition-all ${
+                      isDragging ? 'border-blue-500 bg-blue-50' : 'border-blue-200 bg-blue-50/50'
+                    }`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                  >
                     <input
                       type="file"
                       accept=".pdf"
@@ -193,282 +188,227 @@ const FlipkartCropper = () => {
                       onChange={handleFileChange}
                       ref={fileInputRef}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      id="file-upload"
                     />
-                    <div className="flex flex-col items-center justify-center">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-12 w-12 text-blue-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
+                    <div className="flex flex-col items-center">
+                      <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center mb-3">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                      </div>
+                      <p className="text-gray-700 font-medium mb-2">Drop PDFs or click to browse</p>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors text-sm"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                        />
-                      </svg>
-                      <p className="mt-4 text-xl font-semibold text-gray-700">
-                        Drag & drop PDFs here
-                      </p>
-                      <p className="mt-1 text-sm text-gray-500">
-                        or click to browse
-                      </p>
+                        Choose Files
+                      </button>
                     </div>
-                    {files.length > 0 && (
-                      <p className="mt-4 text-sm font-medium text-blue-600">
-                        {files.length} file(s) selected
-                      </p>
-                    )}
                   </div>
 
-                  {/* File List */}
-                  {files.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="border border-gray-200 rounded-xl divide-y divide-gray-200 max-h-72 overflow-y-auto shadow-inner"
-                    >
-                      {files.map((file, index) => (
-                        <div
-                          key={index}
-                          className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-                        >
-                          <div className="truncate flex-1">
-                            <p className="text-sm font-medium text-gray-900 truncate">
-                              {file.name}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {(file.size / 1024).toFixed(2)} KB
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeFile(index)}
-                            className="ml-4 text-gray-400 hover:text-red-600 transition-colors"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-5 w-5"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
+                  {/* File List - Compact */}
+                  <AnimatePresence>
+                    {files.length > 0 && (
+                      <motion.div className="space-y-2">
+                        <div className="max-h-32 overflow-y-auto space-y-2">
+                          {files.map((file, index) => (
+                            <motion.div
+                              key={index}
+                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg group"
                             >
-                              <path
-                                fillRule="evenodd"
-                                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          </button>
+                              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                <div className="w-8 h-8 bg-red-100 rounded flex items-center justify-center">
+                                  <span className="text-red-600 font-bold text-xs">PDF</span>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                                  <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(1)} KB</p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeFile(index)}
+                                className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </motion.div>
+                          ))}
                         </div>
-                      ))}
-                    </motion.div>
-                  )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                  {/* Upload Progress */}
+                  {/* Progress Bar - Compact */}
                   {isProcessing && uploadProgress > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="space-y-2"
-                    >
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-700">Uploading...</span>
+                        <span className="text-gray-600">{uploadProgress}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
                         <div 
-                          className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                          className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300" 
                           style={{ width: `${uploadProgress}%` }}
-                        ></div>
+                        />
                       </div>
-                      <div className="flex justify-between text-xs text-gray-500">
-                        <span>Uploading: {uploadProgress}%</span>
-                        {uploadSpeed && <span>{uploadSpeed} KB/s</span>}
-                      </div>
-                    </motion.div>
+                    </div>
                   )}
 
-                  {/* Error Message */}
+                  {/* Error Message - Compact */}
                   {error && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg"
-                    >
-                      <p className="font-medium">{error}</p>
-                    </motion.div>
+                    <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded">
+                      <p className="text-sm text-red-700 font-medium">{error}</p>
+                    </div>
                   )}
 
-                  {/* Action Buttons */}
-                  <div className="flex justify-end space-x-4">
+                  {/* Action Buttons - Compact */}
+                  <div className="flex justify-end space-x-3 pt-4">
                     <button
                       type="button"
                       onClick={handleReset}
                       disabled={isProcessing}
-                      className="px-6 py-3 border border-gray-300 rounded-full text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50"
+                      className="px-5 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50"
                     >
                       Reset
                     </button>
                     <button
                       type="submit"
                       disabled={isProcessing || files.length === 0}
-                      className="px-6 py-3 rounded-full text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center"
+                      className="px-6 py-2.5 rounded-lg text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all disabled:opacity-50 flex items-center"
                     >
                       {isProcessing ? (
-                        <svg
-                          className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Processing...
+                        </>
                       ) : (
-                        "✨"
+                        `Process ${files.length} File${files.length !== 1 ? 's' : ''}`
                       )}
-                      Process {files.length} File(s)
                     </button>
                   </div>
                 </form>
               ) : (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className="space-y-6"
-                >
-                  <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-lg">
-                    <p className="font-semibold">
-                      ✅ {processedFiles.length} file(s) processed successfully!
-                    </p>
-                    <p className="text-sm">
-                      Your cropped labels are ready for download.
-                    </p>
+                /* Results - Compact */
+                <div className="space-y-6">
+                  <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+                    <div className="flex items-center">
+                      <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-green-800 font-medium">
+                        Processed {processedFiles.length} file{processedFiles.length !== 1 ? 's' : ''} successfully!
+                      </p>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+                  <div className="space-y-3">
                     {processedFiles.map((file, idx) => (
-                      <motion.div
-                        key={idx}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.3, delay: idx * 0.05 }}
-                        className="p-4 bg-gray-50 rounded-lg flex items-center justify-between shadow-sm"
-                      >
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {file.name}
-                        </p>
+                      <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-green-100 rounded flex items-center justify-center">
+                            <span className="text-green-600 font-bold text-xs">PDF</span>
+                          </div>
+                          <span className="text-sm font-medium text-gray-900">{file.name}</span>
+                        </div>
                         <a
                           href={`${import.meta.env.VITE_API_URL}${file.url}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
+                          className="px-3 py-1.5 bg-green-500 text-white text-sm font-medium rounded hover:bg-green-600 transition-colors"
                         >
                           Download
                         </a>
-                      </motion.div>
+                      </div>
                     ))}
                   </div>
 
-                  <div className="flex justify-end mt-6">
+                  <div className="flex justify-center">
                     <button
                       onClick={handleReset}
-                      className="px-6 py-3 rounded-full text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                      className="px-6 py-2.5 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all"
                     >
                       Process More Files
                     </button>
                   </div>
-                </motion.div>
+                </div>
               )}
-            </div>
+            </motion.div>
+          </div>
 
-            {/* Right - Settings Panel */}
-            <div className="md:w-1/3 p-8 bg-yellow-500 text-white rounded-r-2xl shadow-inner">
-              <h2 className="text-xl font-bold mb-4">Processing Settings</h2>
-              <p className="text-m text-white-1000 mb-6">
-                Configure how your Flipkart labels will be cropped and sorted.
-              </p>
-              <div className="space-y-5">
+          {/* Settings Panel - Compact */}
+          <div className="lg:col-span-1">
+            <motion.div className="bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-2xl shadow-xl p-6 text-white h-fit">
+              <div className="flex items-center mb-4">
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <h2 className="text-lg font-bold">Settings</h2>
+              </div>
+
+              <div className="space-y-3 mb-6">
                 {Object.keys(settings).map((key) => (
                   <div
                     key={key}
-                    className="flex items-center justify-between group cursor-pointer"
+                    className="flex items-center justify-between p-2 rounded-lg cursor-pointer hover:bg-yellow-500/30 transition-colors"
                     onClick={() => handleSettingToggle(key)}
                   >
-                    <label
-                      htmlFor={key}
-                      className="flex-1 text-m font-medium capitalize select-none text-white-1000 group-hover:text-white transition-colors cursor-pointer"
-                    >
-                      {key.replace(/_/g, " ")}
-                    </label>
-                    <input
-                      id={key}
-                      type="checkbox"
-                      checked={settings[key]}
-                      readOnly
-                      className="h-5 w-5 text-white-800 bg-white-200 border-yellow-600 rounded cursor-pointer"
-                    />
+                    <span className="text-sm font-medium flex-1">{settingLabels[key]}</span>
+                    <div className={`relative inline-flex items-center h-5 rounded-full w-9 transition-colors ${
+                      settings[key] ? 'bg-green-500' : 'bg-gray-300'
+                    }`}>
+                      <span className={`inline-block w-3 h-3 transform bg-white rounded-full transition-transform ${
+                        settings[key] ? 'translate-x-5' : 'translate-x-1'
+                      }`} />
+                    </div>
                   </div>
                 ))}
               </div>
-              <div className="mt-12 border-t border-yellow-600 pt-6">
-                <h3 className="text-base font-semibold text-white-100">
-                  Files Summary
-                </h3>
-                <p className="mt-2 text-sm text-white-1000">
-                  {files.length > 0
-                    ? `You have ${files.length} file(s) ready to be processed.`
-                    : "No files uploaded yet. Please select PDFs on the left."}
-                </p>
+
+              {/* Files Summary - Compact */}
+              <div className="pt-4 border-t border-yellow-500/30">
+                <div className="text-center">
+                  <p className="text-yellow-100 text-sm mb-1">Files Ready</p>
+                  <p className="text-2xl font-bold">{files.length}</p>
+                  <p className="text-yellow-100 text-xs mt-1">
+                    {files.length > 0 ? 'Ready to process' : 'Upload files to start'}
+                  </p>
+                </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
 
-        {/* Platform Showcase */}
-        <div className="mt-14">
-          <h2 className="text-3xl font-bold text-gray-800 mb-12 text-center">Other Platforms</h2>
-          <div className="flex flex-wrap justify-center gap-8">
-            <div 
-              onClick={() => navigate("/FlipkartCropper")}
-              className="bg-white p-6 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2 border-2 border-blue-500 flex flex-col items-center"
-            >
-              <div className="bg-blue-50 p-4 rounded-xl mb-4">
-                <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold">F</div>
+        {/* Platform Showcase - Compact */}
+        <div className="mt-12">
+          <h3 className="text-lg font-semibold text-gray-800 mb-6 text-center">Other Platforms</h3>
+          <div className="flex justify-center gap-4">
+            {[
+              { name: "Flipkart", path: "/FlipkartCropper", color: "from-yellow-400 to-yellow-600", active: true },
+              { name: "Meesho", path: "/MeshooCropper", color: "from-pink-500 to-pink-700" },
+              { name: "JioMart", path: "/JioMartCropper", color: "from-blue-500 to-blue-700" }
+            ].map((platform, index) => (
+              <div
+                key={platform.name}
+                onClick={() => !platform.active && navigate(platform.path)}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg cursor-pointer transition-all ${
+                  platform.active 
+                    ? 'bg-yellow-500 text-white shadow-lg' 
+                    : 'bg-white text-gray-700 shadow hover:shadow-md'
+                }`}
+              >
+                <div className={`w-6 h-6 rounded bg-gradient-to-r ${platform.color} flex items-center justify-center`}>
+                  <span className="text-xs font-bold text-white">{platform.name.charAt(0)}</span>
+                </div>
+                <span className="text-sm font-medium">{platform.name}</span>
               </div>
-              <h3 className="text-lg font-semibold text-gray-800">Flipkart</h3>
-            </div>
-            
-            <div 
-              onClick={() => navigate("/MeshooCropper")}
-              className="bg-white p-6 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2 border border-gray-100 flex flex-col items-center"
-            >
-              <div className="bg-orange-50 p-4 rounded-xl mb-4">
-                <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center text-white font-bold">M</div>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-800">Meesho</h3>
-            </div>
-            
-            <div 
-              onClick={() => navigate("/JioMartCropper")}
-              className="bg-white p-6 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2 border border-gray-100 flex flex-col items-center"
-            >
-              <div className="bg-red-50 p-4 rounded-xl mb-4">
-                <div className="w-12 h-12 bg-red-500 rounded-lg flex items-center justify-center text-white font-bold">J</div>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-800">JioMart</h3>
-            </div>
+            ))}
           </div>
         </div>
       </motion.div>
