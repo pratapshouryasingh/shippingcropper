@@ -130,7 +130,7 @@ const MeshooCropper = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8 mt-20">
       <Helmet>
         <title>Meesho Label Cropper | Free PDF Invoice & Label Tool</title>
         <meta 

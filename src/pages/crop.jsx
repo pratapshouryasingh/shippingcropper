@@ -474,7 +474,7 @@ const PdfCropper = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-8 px-4 mt-20">
       <Helmet>
         <title>PDF Cropper | Free PDF Tool</title>
         <meta name="description" content="Crop PDFs online for free with precise controls." />

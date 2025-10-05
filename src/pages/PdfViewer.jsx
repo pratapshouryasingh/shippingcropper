@@ -438,7 +438,7 @@ export default function UniversalConverter() {
   const currentFile = files[activeFileIndex];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 mt-20">
       <div className="max-w-7xl mx-auto">
         {/* Enhanced Header */}
         <div className="text-center mb-8">
