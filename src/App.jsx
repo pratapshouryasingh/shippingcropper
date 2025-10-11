@@ -1,4 +1,4 @@
-import { Routes, Route, useNavigate } from "react-router-dom";
+import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Navbar from "./components/Navbar";
 import Footer from "./components/footer";
@@ -8,8 +8,7 @@ import MeshooCropper from "./pages/MeshooCropper";
 import JioMartCropper from "./pages/JioMartCropper";
 import ContactUs from "./pages/ContactUs";
 import PdfCropper from "./pages/crop";
-import HistorySidebar from "./components/HistorySidebar"; // Add this import
-
+import HistorySidebar from "./components/HistorySidebar";
 import { Helmet } from "react-helmet";
 import { motion, AnimatePresence } from "framer-motion";
 import "./App.css";
@@ -25,14 +24,15 @@ const LoadingSpinner = () => (
 );
 
 // Floating action button for quick access
-const FloatingActionButton = () => {
+const FloatingActionButton = ({ onToggleHistory }) => {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
 
   const quickActions = [
     { label: "PDF Tools", path: "/PdfViewer", color: "bg-blue-600 hover:bg-blue-700", icon: "📄" },
     { label: "Crop PDF", path: "/crop", color: "bg-purple-600 hover:bg-purple-700", icon: "✂️" },
-    { label: "Support", path: "/ContactUs", color: "bg-green-600 hover:bg-green-700", icon: "💬" }
+    { label: "Support", path: "/ContactUs", color: "bg-green-600 hover:bg-green-700", icon: "💬" },
+    { label: "History", action: onToggleHistory, color: "bg-orange-600 hover:bg-orange-700", icon: "📚" }
   ];
 
   return (
@@ -47,7 +47,14 @@ const FloatingActionButton = () => {
                 animate={{ scale: 1, opacity: 1, x: 0 }}
                 exit={{ scale: 0, opacity: 0, x: 20 }}
                 transition={{ delay: index * 0.1 }}
-                onClick={() => navigate(action.path)}
+                onClick={() => {
+                  if (action.path) {
+                    navigate(action.path);
+                  } else if (action.action) {
+                    action.action();
+                  }
+                  setIsOpen(false);
+                }}
                 className={`px-4 py-3 ${action.color} text-white rounded-full shadow-lg transition-all duration-300 text-sm font-medium flex items-center gap-2 min-w-[140px] justify-end`}
               >
                 <span>{action.icon}</span>
@@ -812,10 +819,9 @@ const HeroImageShowcase = () => {
   );
 };
 
-function HomePage() {
+function HomePage({ isHistoryOpen, onToggleHistory }) {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false); // State for history sidebar
 
   // Simulate loading
   useEffect(() => {
@@ -1034,9 +1040,6 @@ function HomePage() {
 
   return (
     <div className="min-h-screen bg-white flex">
-      {/* History Sidebar */}
-      <HistorySidebar isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
-      
       {/* Main Content */}
       <div className={`flex-1 transition-all duration-300 ${isHistoryOpen ? 'ml-80' : 'ml-0'}`}>
         <Helmet>
@@ -1108,20 +1111,20 @@ function HomePage() {
               transition={{ duration: 0.7 }}
               className="flex-1 text-center md:text-left"
             >
- <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-5xl lg:text-5xl font-bold text-gray-900 leading-tight mb-6"
-        >
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-gray-400 to-purple-800">
-                Complete PDF &
-            </span>
-            <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
-                E-commerce Toolkit
-            </span>
-        </motion.h1>
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="text-5xl lg:text-5xl font-bold text-gray-900 leading-tight mb-6"
+              >
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-gray-400 to-purple-800">
+                  Complete PDF &
+                </span>
+                <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
+                  E-commerce Toolkit
+                </span>
+              </motion.h1>
               
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
@@ -1411,13 +1414,36 @@ function HomePage() {
         </section>
 
         <Footer />
-        <FloatingActionButton />
+        <FloatingActionButton onToggleHistory={onToggleHistory} />
       </div>
     </div>
   );
 }
 
+// Layout component that wraps all pages with history sidebar
+const AppLayout = ({ children, isHistoryOpen, onToggleHistory }) => {
+  return (
+    <div className="min-h-screen bg-white flex">
+      {/* History Sidebar */}
+      <HistorySidebar isOpen={isHistoryOpen} onClose={() => onToggleHistory(false)} />
+      
+      {/* Main Content */}
+      <div className={`flex-1 transition-all duration-300 ${isHistoryOpen ? 'ml-80' : 'ml-0'}`}>
+        {children}
+        <FloatingActionButton onToggleHistory={onToggleHistory} />
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const location = useLocation();
+
+  const toggleHistory = () => {
+    setIsHistoryOpen(!isHistoryOpen);
+  };
+
   return (
     <>
       <Helmet>
@@ -1433,16 +1459,18 @@ export default function App() {
         <link rel="canonical" href="https://yourdomain.com/" />
       </Helmet>
       
-      <Navbar />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/PdfViewer" element={<PdfViewer />} />
-        <Route path="/FlipkartCropper" element={<FlipkartCropper />} />
-        <Route path="/MeshooCropper" element={<MeshooCropper />} />
-        <Route path="/JioMartCropper" element={<JioMartCropper />} />
-        <Route path="/ContactUs" element={<ContactUs />} />
-        <Route path="/crop" element={<PdfCropper />} />
-      </Routes>
+      <Navbar onToggleHistory={toggleHistory} />
+      <AppLayout isHistoryOpen={isHistoryOpen} onToggleHistory={setIsHistoryOpen}>
+        <Routes location={location}>
+          <Route path="/" element={<HomePage isHistoryOpen={isHistoryOpen} onToggleHistory={toggleHistory} />} />
+          <Route path="/PdfViewer" element={<PdfViewer />} />
+          <Route path="/FlipkartCropper" element={<FlipkartCropper />} />
+          <Route path="/MeshooCropper" element={<MeshooCropper />} />
+          <Route path="/JioMartCropper" element={<JioMartCropper />} />
+          <Route path="/ContactUs" element={<ContactUs />} />
+          <Route path="/crop" element={<PdfCropper />} />
+        </Routes>
+      </AppLayout>
     </>
   );
 }
