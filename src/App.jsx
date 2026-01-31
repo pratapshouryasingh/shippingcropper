@@ -13,301 +13,195 @@ import { Helmet } from "react-helmet";
 import { motion } from "framer-motion";
 import "./App.css";
 
-// Loading spinner component
+// Loading spinner
 const LoadingSpinner = () => (
-  <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-    <div className="text-center">
-      <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-300 border-t-blue-600 mx-auto mb-6"></div>
-      <p className="text-gray-700 font-medium text-lg">Loading Professional Tools...</p>
-      <p className="text-gray-500 text-sm mt-2">Preparing your workspace</p>
+  <div className="flex items-center justify-center min-h-screen bg-gray-50">
+    <div className="relative">
+      <div className="w-16 h-16 border-4 border-gray-200 rounded-full"></div>
+      <div className="absolute top-0 left-0 w-16 h-16 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+      <div className="mt-4 text-gray-600 font-medium">Loading...</div>
     </div>
   </div>
 );
 
-// Floating action button for quick access
+// Modern FAB
 const FloatingActionButton = ({ onToggleHistory }) => {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
 
   const quickActions = [
-    { 
-      label: "PDF Converter", 
-      path: "/PdfViewer", 
-      color: "bg-blue-600 hover:bg-blue-700", 
-      icon: "📄",
-      description: "Convert documents"
-    },
-    { 
-      label: "PDF Cropper", 
-      path: "/crop", 
-      color: "bg-purple-600 hover:bg-purple-700", 
-      icon: "✂️",
-      description: "Crop PDF pages"
-    },
-    { 
-      label: "Support", 
-      path: "/ContactUs", 
-      color: "bg-green-600 hover:bg-green-700", 
-      icon: "💬",
-      description: "Get help"
-    },
-    { 
-      label: "History", 
-      action: onToggleHistory, 
-      color: "bg-gray-700 hover:bg-gray-800", 
-      icon: "📚",
-      description: "View recent files"
-    }
+    { label: "PDF Converter", path: "/PdfViewer", icon: "📄", color: "text-blue-600" },
+    { label: "PDF Cropper", path: "/crop", icon: "✂️", color: "text-purple-600" },
+    { label: "Contact Support", path: "/ContactUs", icon: "💬", color: "text-green-600" },
+    { label: "History", action: onToggleHistory, icon: "📚", color: "text-gray-600" }
   ];
 
   return (
-    <div className="fixed bottom-8 right-8 z-40">
-      {/* Quick Actions Panel */}
-      <div className={`absolute bottom-20 right-0 mb-4 transition-all duration-300 ${isOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
-        <div className="bg-white rounded-xl shadow-2xl border border-gray-200 p-4 w-64">
-          <div className="space-y-2">
-            {quickActions.map((action) => (
-              <button
-                key={action.label}
-                onClick={() => {
-                  if (action.path) {
-                    navigate(action.path);
-                  } else if (action.action) {
-                    action.action();
-                  }
-                  setIsOpen(false);
-                }}
-                className="w-full p-3 text-left rounded-lg hover:bg-gray-50 transition-colors duration-200 flex items-center gap-3 group"
-              >
-                <div className={`w-10 h-10 ${action.color.replace('hover:', '')} rounded-lg flex items-center justify-center text-white`}>
-                  <span className="text-lg">{action.icon}</span>
-                </div>
-                <div>
-                  <div className="font-semibold text-gray-800 group-hover:text-blue-600">{action.label}</div>
-                  <div className="text-xs text-gray-500">{action.description}</div>
-                </div>
-              </button>
-            ))}
-          </div>
+    <div className="fixed bottom-6 right-6 z-40">
+      {/* Quick Actions Menu */}
+      <div className={`absolute bottom-16 right-0 mb-3 transition-all duration-200 transform ${isOpen ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 pointer-events-none'}`}>
+        <div className="bg-white rounded-lg shadow-xl border border-gray-200 py-2 w-48">
+          {quickActions.map((action) => (
+            <button
+              key={action.label}
+              onClick={() => {
+                if (action.path) navigate(action.path);
+                if (action.action) action.action();
+                setIsOpen(false);
+              }}
+              className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 group"
+            >
+              <span className={`text-lg ${action.color} group-hover:scale-110 transition-transform`}>{action.icon}</span>
+              <span className="text-sm font-medium text-gray-700">{action.label}</span>
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Main FAB Button */}
+      {/* Main Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-14 h-14 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full shadow-xl flex items-center justify-center text-white hover:shadow-2xl transition-all duration-300 group relative"
+        className="w-14 h-14 bg-gray-900 text-white rounded-full shadow-lg hover:shadow-xl hover:bg-gray-800 transition-all duration-200 flex items-center justify-center group"
       >
-        <div className={`transition-transform duration-300 ${isOpen ? 'rotate-45' : ''}`}>
+        <div className={`transition-transform duration-200 ${isOpen ? 'rotate-45' : ''}`}>
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-        </div>
-        
-        {/* Tooltip */}
-        <div className="absolute -top-12 right-0 bg-gray-900 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          Quick Actions
-          <div className="absolute -bottom-1 right-5 w-2 h-2 bg-gray-900 transform rotate-45"></div>
         </div>
       </button>
     </div>
   );
 };
 
-// Professional Tool Card Component
-const ToolCard = ({ tool, index }) => {
+// Modern Tool Card
+const ModernToolCard = ({ tool }) => {
   const navigate = useNavigate();
+  const [hovered, setHovered] = useState(false);
 
-  const colorClasses = {
-    green: {
-      bg: 'bg-green-50',
-      border: 'border-green-100',
-      icon: 'bg-green-600',
-      text: 'text-green-700',
-      hover: 'hover:border-green-300'
-    },
-    purple: {
-      bg: 'bg-purple-50',
-      border: 'border-purple-100',
-      icon: 'bg-purple-600',
-      text: 'text-purple-700',
-      hover: 'hover:border-purple-300'
-    },
-    yellow: {
-      bg: 'bg-yellow-50',
-      border: 'border-yellow-100',
-      icon: 'bg-yellow-600',
-      text: 'text-yellow-700',
-      hover: 'hover:border-yellow-300'
-    },
-    orange: {
-      bg: 'bg-orange-50',
-      border: 'border-orange-100',
-      icon: 'bg-orange-600',
-      text: 'text-orange-700',
-      hover: 'hover:border-orange-300'
-    },
-    red: {
-      bg: 'bg-red-50',
-      border: 'border-red-100',
-      icon: 'bg-red-600',
-      text: 'text-red-700',
-      hover: 'hover:border-red-300'
-    }
+  const gradients = {
+    green: "from-emerald-500 to-green-500",
+    purple: "from-purple-500 to-pink-500",
+    yellow: "from-amber-500 to-orange-500",
+    orange: "from-orange-500 to-red-500",
+    red: "from-red-500 to-pink-500",
+    blue: "from-blue-500 to-cyan-500"
   };
-
-  const colors = colorClasses[tool.color] || colorClasses.blue;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.1 }}
-      className={`bg-white rounded-xl border-2 ${colors.border} ${colors.hover} shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden`}
+      transition={{ duration: 0.3 }}
+      className="group relative bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onClick={() => navigate(tool.route)}
     >
+      {/* Gradient accent */}
+      <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${gradients[tool.color]}`}></div>
+      
       <div className="p-6">
-        {/* Header with icon and title */}
-        <div className="flex items-start gap-4 mb-4">
-          <div className={`w-12 h-12 ${colors.icon} rounded-lg flex items-center justify-center`}>
-            <span className="text-xl text-white">{tool.icon}</span>
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${gradients[tool.color]} flex items-center justify-center text-white text-xl`}>
+              {tool.icon}
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900 group-hover:text-gray-800">{tool.name}</h3>
+              <p className="text-sm text-gray-600 mt-1">{tool.description}</p>
+            </div>
           </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-800 mb-1">{tool.name}</h3>
-            <p className="text-gray-600 text-sm">{tool.description}</p>
-          </div>
+          <motion.div
+            animate={{ x: hovered ? 4 : 0 }}
+            className="text-gray-400"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </motion.div>
         </div>
 
-        {/* Feature tags */}
-        <div className="flex flex-wrap gap-2 mb-4">
-          {tool.features.slice(0, 3).map((feature, idx) => (
-            <span key={idx} className={`px-3 py-1 ${colors.bg} ${colors.text} text-xs font-medium rounded-full`}>
-              {feature}
-            </span>
+        <div className="space-y-3">
+          {tool.features.map((feature, idx) => (
+            <div key={idx} className="flex items-center gap-3 text-sm text-gray-700">
+              <div className="w-1.5 h-1.5 rounded-full bg-gray-300"></div>
+              <span>{feature}</span>
+            </div>
           ))}
         </div>
 
-        {/* Stats */}
-        <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-          <div className="flex items-center gap-1">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>Fast processing</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-            <span>Secure</span>
-          </div>
-        </div>
-
-        {/* Action Button */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             navigate(tool.route);
           }}
-          className={`w-full py-3 ${colors.icon} text-white rounded-lg font-medium hover:opacity-90 transition-opacity duration-200 flex items-center justify-center gap-2`}
+          className={`mt-6 w-full py-3 bg-gradient-to-r ${gradients[tool.color]} text-white rounded-lg font-medium hover:opacity-90 transition-opacity duration-200`}
         >
-          <span>Use Tool</span>
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+          Use Tool
         </button>
       </div>
     </motion.div>
   );
 };
 
-// Feature Card Component
-const FeatureCard = ({ feature }) => (
-  <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-300">
-    <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-50 rounded-lg mb-4">
-      <span className="text-2xl">{feature.icon}</span>
-    </div>
-    <h3 className="text-lg font-semibold text-gray-800 mb-3">{feature.title}</h3>
-    <p className="text-gray-600 text-sm leading-relaxed">{feature.description}</p>
-  </div>
-);
-
-// Platform Badge Component
-const PlatformBadge = ({ platform }) => (
-  <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg">
-    <span className="text-lg">{platform.icon}</span>
-    <span className="font-medium text-gray-700">{platform.name}</span>
-  </div>
-);
-
-// Professional Hero Section with clear value proposition
-const ProfessionalHero = () => {
+// Modern Hero Section
+const ModernHero = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="bg-gradient-to-br from-gray-50 via-white to-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="text-center max-w-4xl mx-auto">
+    <div className="relative bg-gradient-to-b from-gray-50 to-white overflow-hidden">
+      {/* Background pattern */}
+      <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))]"></div>
+      
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32">
+        <div className="text-center">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-100 rounded-full mb-8">
-            <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm font-medium mb-8">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
-            <span className="text-blue-700 font-medium">Trusted by 50,000+ Professionals</span>
+            Trusted by thousands of sellers
           </div>
 
-          {/* Main Heading */}
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-            Professional PDF & E-commerce
-            <span className="block text-blue-600">Toolkit for Sellers</span>
+          {/* Main heading */}
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-gray-900 mb-6">
+            Modern Tools for
+            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">
+              Modern Sellers
+            </span>
           </h1>
 
-          {/* Subheading */}
-          <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Advanced document processing tools optimized for e-commerce platforms. Convert, crop, and analyze your product files with enterprise-grade precision.
+          {/* Description */}
+          <p className="text-xl text-gray-600 mb-10 max-w-3xl mx-auto leading-relaxed">
+            Professional PDF processing tools designed for e-commerce. Convert, crop, and optimize your product files with precision and speed.
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
             <button
               onClick={() => navigate('/PdfViewer')}
-              className="px-8 py-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors duration-200 shadow-lg hover:shadow-xl"
+              className="px-8 py-4 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors duration-200 shadow-lg hover:shadow-xl"
             >
-              Start Free Trial
+              Get Started
             </button>
             <button
-              onClick={() => document.getElementById('tools-section').scrollIntoView({ behavior: 'smooth' })}
-              className="px-8 py-4 bg-white text-gray-800 font-semibold rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors duration-200"
+              onClick={() => document.getElementById('tools').scrollIntoView({ behavior: 'smooth' })}
+              className="px-8 py-4 bg-white text-gray-700 font-medium rounded-lg border border-gray-300 hover:border-gray-400 transition-colors duration-200"
             >
-              View All Tools
+              Explore Tools
             </button>
-          </div>
-
-          {/* Platform Support */}
-          <div className="mb-12">
-            <p className="text-gray-500 font-medium mb-4">Optimized for leading platforms:</p>
-            <div className="flex flex-wrap justify-center gap-3">
-              {[
-                { name: "Flipkart", icon: "🛒" },
-                { name: "Meesho", icon: "📦" },
-                { name: "JioMart", icon: "🏪" },
-                { name: "Amazon", icon: "📦" },
-                { name: "Myntra", icon: "👕" }
-              ].map((platform) => (
-                <PlatformBadge key={platform.name} platform={platform} />
-              ))}
-            </div>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-3xl mx-auto">
             {[
-              { value: "1M+", label: "Files Processed" },
-              { value: "99.9%", label: "Accuracy Rate" },
-              { value: "50K+", label: "Active Users" },
-              { value: "24/7", label: "Support Available" }
-            ].map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="text-2xl font-bold text-gray-900 mb-1">{stat.value}</div>
+              { value: "100K+", label: "Files Processed" },
+              { value: "99.9%", label: "Uptime" },
+              { value: "50+", label: "Countries" },
+              { value: "24/7", label: "Support" }
+            ].map((stat, idx) => (
+              <div key={idx} className="text-center">
+                <div className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</div>
                 <div className="text-sm text-gray-600">{stat.label}</div>
               </div>
             ))}
@@ -318,26 +212,32 @@ const ProfessionalHero = () => {
   );
 };
 
-// How It Works Section
-const HowItWorks = () => {
-  const steps = [
+// Features Showcase
+const FeaturesShowcase = () => {
+  const features = [
     {
-      number: "01",
-      title: "Upload Files",
-      description: "Upload PDFs, images, or documents in any format. Batch upload supported.",
-      icon: "📤"
+      icon: "🚀",
+      title: "Lightning Fast",
+      description: "Process files in seconds with our optimized infrastructure",
+      color: "text-blue-600"
     },
     {
-      number: "02",
-      title: "Process & Optimize",
-      description: "Use specialized tools to convert, crop, and enhance your files.",
-      icon: "⚡"
+      icon: "🛡️",
+      title: "Secure & Private",
+      description: "Your files are processed securely and never stored",
+      color: "text-green-600"
     },
     {
-      number: "03",
-      title: "Analyze & Export",
-      description: "View analytics and export optimized files ready for e-commerce platforms.",
-      icon: "📊"
+      icon: "🎯",
+      title: "Platform Optimized",
+      description: "Tools specifically designed for each e-commerce platform",
+      color: "text-purple-600"
+    },
+    {
+      icon: "🔄",
+      title: "Batch Processing",
+      description: "Handle multiple files simultaneously to save time",
+      color: "text-orange-600"
     }
   ];
 
@@ -346,30 +246,259 @@ const HowItWorks = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Simple Three-Step Process
+            Why Choose Our Tools?
           </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            From upload to export - complete your workflow in minutes
+            Built with performance, security, and ease of use in mind
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {steps.map((step, index) => (
-            <div key={index} className="relative">
-              {/* Connecting line for desktop */}
-              {index < steps.length - 1 && (
-                <div className="hidden md:block absolute top-8 left-3/4 w-full h-0.5 bg-gray-200"></div>
-              )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {features.map((feature, idx) => (
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.1 }}
+              className="group p-6 rounded-2xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-300"
+            >
+              <div className={`text-3xl mb-4 ${feature.color}`}>{feature.icon}</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{feature.title}</h3>
+              <p className="text-gray-600 text-sm leading-relaxed">{feature.description}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
 
-              <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-300">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="flex-shrink-0 w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                    <span className="text-2xl">{step.icon}</span>
+// Platform Integration
+const PlatformIntegration = () => {
+  const platforms = [
+    { name: "Flipkart", icon: "🛒", color: "from-yellow-400 to-yellow-500" },
+    { name: "Meesho", icon: "📦", color: "from-pink-500 to-rose-500" },
+    { name: "JioMart", icon: "🏪", color: "from-blue-500 to-blue-600" },
+    { name: "Amazon", icon: "📦", color: "from-orange-400 to-orange-500" },
+    { name: "Myntra", icon: "👕", color: "from-red-500 to-pink-500" }
+  ];
+
+  return (
+    <div className="bg-gray-50 py-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-16">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            Optimized for Your Platform
+          </h2>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Tools specifically designed for each e-commerce platform's requirements
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+          {platforms.map((platform, idx) => (
+            <motion.div
+              key={platform.name}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: idx * 0.1 }}
+              whileHover={{ y: -4 }}
+              className="group bg-white rounded-xl border border-gray-200 p-6 text-center hover:shadow-lg transition-all duration-300"
+            >
+              <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${platform.color} flex items-center justify-center text-2xl text-white mx-auto mb-4 group-hover:scale-110 transition-transform duration-300`}>
+                {platform.icon}
+              </div>
+              <div className="font-semibold text-gray-900">{platform.name}</div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// How It Works
+const Workflow = () => {
+  const steps = [
+    {
+      number: "1",
+      title: "Upload",
+      description: "Drag and drop your files or select from your device",
+      icon: "📤"
+    },
+    {
+      number: "2",
+      title: "Process",
+      description: "Use our specialized tools to convert and optimize",
+      icon: "⚡"
+    },
+    {
+      number: "3",
+      title: "Download",
+      description: "Get your processed files ready for upload",
+      icon: "📥"
+    }
+  ];
+
+  return (
+    <div className="bg-white py-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-16">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            Simple Workflow
+          </h2>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Three simple steps from upload to download
+          </p>
+        </div>
+
+        <div className="relative">
+          {/* Connecting line */}
+          <div className="hidden md:block absolute top-1/4 left-0 right-0 h-0.5 bg-gray-200"></div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {steps.map((step, idx) => (
+              <div key={idx} className="relative">
+                <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-300">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-2xl">
+                      {step.icon}
+                    </div>
+                    <div className="text-3xl font-bold text-gray-300">{step.number}</div>
                   </div>
-                  <div className="text-3xl font-bold text-gray-300">{step.number}</div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-3">{step.title}</h3>
+                  <p className="text-gray-600">{step.description}</p>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-3">{step.title}</h3>
-                <p className="text-gray-600">{step.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Tools Grid
+const ToolsGrid = () => {
+  const tools = [
+    {
+      name: "PDF Converter",
+      description: "Convert PDFs to multiple formats with batch processing",
+      route: "/PdfViewer",
+      color: "green",
+      icon: "🔄",
+      features: ["Multiple formats", "Batch processing", "Quality preservation"]
+    },
+    {
+      name: "PDF Cropper",
+      description: "Precision cropping tool for PDF documents",
+      route: "/crop",
+      color: "purple",
+      icon: "✂️",
+      features: ["Precision controls", "Multi-page", "Batch support"]
+    },
+    {
+      name: "Flipkart Cropper",
+      description: "Optimized for Flipkart product labels",
+      route: "/FlipkartCropper",
+      color: "yellow",
+      icon: "🛒",
+      features: ["Auto-formatting", "Platform optimized", "Quick export"]
+    },
+    {
+      name: "Meesho Cropper",
+      description: "Tailored for Meesho product specifications",
+      route: "/MeshooCropper",
+      color: "orange",
+      icon: "📦",
+      features: ["Quality checks", "Instant preview", "Compliant output"]
+    },
+    {
+      name: "JioMart Cropper",
+      description: "Complete solution for JioMart preparation",
+      route: "/JioMartCropper",
+      color: "red",
+      icon: "🏪",
+      features: ["Smart optimization", "Fast processing", "Platform ready"]
+    }
+  ];
+
+  return (
+    <div id="tools" className="bg-gray-50 py-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-16">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            Complete Tool Suite
+          </h2>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Specialized tools for every e-commerce need
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {tools.map((tool, idx) => (
+            <ModernToolCard key={tool.name} tool={tool} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// FAQ Section
+const FAQ = () => {
+  const [openIndex, setOpenIndex] = useState(null);
+
+  const faqs = [
+    {
+      question: "Is there a file size limit?",
+      answer: "We support files up to 500MB for most tools. For larger files, contact our support team."
+    },
+    {
+      question: "How secure are my files?",
+      answer: "All files are processed securely and automatically deleted after 24 hours. We never store your personal data."
+    },
+    {
+      question: "Do I need to create an account?",
+      answer: "No account is required for basic usage. Create an account to save your processing history."
+    },
+    {
+      question: "Which formats are supported?",
+      answer: "We support PDF, JPG, PNG, DOC, DOCX, TXT, and more. Check each tool for specific format support."
+    }
+  ];
+
+  return (
+    <div className="bg-white py-20">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-16">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            Frequently Asked Questions
+          </h2>
+          <p className="text-lg text-gray-600">
+            Everything you need to know about our tools
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          {faqs.map((faq, idx) => (
+            <div key={idx} className="border border-gray-200 rounded-lg overflow-hidden">
+              <button
+                className="w-full px-6 py-4 text-left flex justify-between items-center hover:bg-gray-50 transition-colors duration-200"
+                onClick={() => setOpenIndex(openIndex === idx ? null : idx)}
+              >
+                <span className="font-medium text-gray-900">{faq.question}</span>
+                <svg 
+                  className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${openIndex === idx ? 'rotate-180' : ''}`}
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              <div className={`px-6 overflow-hidden transition-all duration-200 ${openIndex === idx ? 'pb-4' : 'max-h-0'}`}>
+                <p className="text-gray-600">{faq.answer}</p>
               </div>
             </div>
           ))}
@@ -379,257 +508,46 @@ const HowItWorks = () => {
   );
 };
 
-// Pricing Section
-const PricingSection = () => (
-  <div className="bg-gray-50 py-20">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="text-center mb-16">
-        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-          Transparent Pricing
-        </h2>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Choose the plan that fits your business needs
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-        {/* Free Plan */}
-        <div className="bg-white rounded-xl border border-gray-200 p-8">
-          <div className="text-center mb-6">
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">Starter</h3>
-            <div className="text-4xl font-bold text-gray-900 mb-1">₹0<span className="text-lg text-gray-600">/month</span></div>
-            <p className="text-gray-500 text-sm">For individuals & small sellers</p>
-          </div>
-          <ul className="space-y-3 mb-8">
-            <li className="flex items-center gap-3 text-gray-600">
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              <span>100 files/month</span>
-            </li>
-            <li className="flex items-center gap-3 text-gray-600">
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              <span>Basic conversion tools</span>
-            </li>
-            <li className="flex items-center gap-3 text-gray-600">
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              <span>Standard support</span>
-            </li>
-          </ul>
-          <button className="w-full py-3 bg-gray-100 text-gray-800 font-medium rounded-lg hover:bg-gray-200 transition-colors duration-200">
-            Get Started Free
-          </button>
-        </div>
-
-        {/* Pro Plan - Highlighted */}
-        <div className="bg-white rounded-xl border-2 border-blue-500 p-8 shadow-lg relative">
-          <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-            <span className="bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-semibold">Most Popular</span>
-          </div>
-          <div className="text-center mb-6">
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">Professional</h3>
-            <div className="text-4xl font-bold text-gray-900 mb-1">₹999<span className="text-lg text-gray-600">/month</span></div>
-            <p className="text-gray-500 text-sm">For growing businesses</p>
-          </div>
-          <ul className="space-y-3 mb-8">
-            <li className="flex items-center gap-3 text-gray-600">
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              <span>Unlimited files</span>
-            </li>
-            <li className="flex items-center gap-3 text-gray-600">
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              <span>All premium tools</span>
-            </li>
-            <li className="flex items-center gap-3 text-gray-600">
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              <span>Priority support</span>
-            </li>
-            <li className="flex items-center gap-3 text-gray-600">
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              <span>Advanced analytics</span>
-            </li>
-          </ul>
-          <button className="w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200 shadow-lg">
-            Start 14-Day Trial
-          </button>
-        </div>
-
-        {/* Enterprise Plan */}
-        <div className="bg-white rounded-xl border border-gray-200 p-8">
-          <div className="text-center mb-6">
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">Enterprise</h3>
-            <div className="text-4xl font-bold text-gray-900 mb-1">Custom</div>
-            <p className="text-gray-500 text-sm">For large organizations</p>
-          </div>
-          <ul className="space-y-3 mb-8">
-            <li className="flex items-center gap-3 text-gray-600">
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              <span>Custom volume</span>
-            </li>
-            <li className="flex items-center gap-3 text-gray-600">
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              <span>Dedicated support</span>
-            </li>
-            <li className="flex items-center gap-3 text-gray-600">
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              <span>API access</span>
-            </li>
-            <li className="flex items-center gap-3 text-gray-600">
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              <span>Custom integrations</span>
-            </li>
-          </ul>
-          <button className="w-full py-3 bg-gray-800 text-white font-medium rounded-lg hover:bg-gray-900 transition-colors duration-200">
-            Contact Sales
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-// Testimonials Section
-const Testimonials = () => (
-  <div className="bg-white py-20">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="text-center mb-16">
-        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-          Trusted by E-commerce Professionals
-        </h2>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          See what our users have to say about their experience
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {[
-          {
-            name: "Rajesh Kumar",
-            role: "Flipkart Seller",
-            content: "The PDF cropper saved me hours of manual work. My product images are now perfectly optimized.",
-            avatar: "RK"
-          },
-          {
-            name: "Priya Sharma",
-            role: "Meesho Seller",
-            content: "Batch processing feature is a game-changer. I can process hundreds of files in minutes.",
-            avatar: "PS"
-          },
-          {
-            name: "Amit Patel",
-            role: "JioMart Supplier",
-            content: "The analytics helped me understand my sales patterns better. Great tool for serious sellers.",
-            avatar: "AP"
-          }
-        ].map((testimonial, index) => (
-          <div key={index} className="bg-gray-50 p-6 rounded-xl border border-gray-200">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <span className="font-semibold text-blue-700">{testimonial.avatar}</span>
-              </div>
-              <div>
-                <div className="font-semibold text-gray-800">{testimonial.name}</div>
-                <div className="text-sm text-gray-600">{testimonial.role}</div>
-              </div>
-            </div>
-            <p className="text-gray-600 italic">"{testimonial.content}"</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
-
-// Main Home Page Component
-function HomePage({ isHistoryOpen, onToggleHistory }) {
+// Final CTA
+const FinalCTA = () => {
   const navigate = useNavigate();
+
+  return (
+    <div className="bg-gradient-to-br from-gray-900 to-gray-800 py-20">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
+          Ready to get started?
+        </h2>
+        <p className="text-xl text-gray-300 mb-10 max-w-2xl mx-auto">
+          Join thousands of sellers who trust our tools for their e-commerce success.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <button
+            onClick={() => navigate('/PdfViewer')}
+            className="px-8 py-4 bg-white text-gray-900 font-medium rounded-lg hover:bg-gray-100 transition-colors duration-200 shadow-lg"
+          >
+            Start Processing Files
+          </button>
+          <button
+            onClick={() => navigate('/ContactUs')}
+            className="px-8 py-4 bg-transparent border-2 border-white text-white font-medium rounded-lg hover:bg-white/10 transition-colors duration-200"
+          >
+            Contact Support
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Main Home Page
+function HomePage({ isHistoryOpen, onToggleHistory }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1000);
     return () => clearTimeout(timer);
   }, []);
-
-  const tools = [
-    { 
-      name: "PDF Converter", 
-      description: "Convert PDFs to multiple formats with batch processing and quality preservation", 
-      route: "/PdfViewer",
-      color: "green",
-      icon: "🔄",
-      features: ["Multiple formats", "Batch processing", "Quality control"]
-    },
-    { 
-      name: "PDF Cropper", 
-      description: "Advanced cropping tool with precision controls and multi-page support", 
-      route: "/crop",
-      color: "purple",
-      icon: "✂️",
-      features: ["Precision cropping", "Multi-page", "Batch support"]
-    },
-    { 
-      name: "Flipkart Cropper", 
-      description: "Optimized for Flipkart product labels with auto-formatting and analytics", 
-      route: "/FlipkartCropper",
-      color: "yellow",
-      icon: "🛒",
-      features: ["Flipkart optimized", "Auto-formatting", "Analytics"]
-    },
-    { 
-      name: "Meesho Cropper", 
-      description: "Tailored for Meesho product specifications with quality checks", 
-      route: "/MeshooCropper",
-      color: "orange",
-      icon: "📦",
-      features: ["Meesho compliant", "Quality checks", "Preview"]
-    },
-    { 
-      name: "JioMart Cropper", 
-      description: "Complete solution for JioMart product preparation and optimization", 
-      route: "/JioMartCropper",
-      color: "red",
-      icon: "🏪",
-      features: ["JioMart ready", "Smart optimize", "Fast processing"]
-    }
-  ];
-
-  const features = [
-    {
-      icon: "⚡",
-      title: "High Performance",
-      description: "Process large files quickly with our optimized algorithms and cloud infrastructure"
-    },
-    {
-      icon: "🔒",
-      title: "Bank-Level Security",
-      description: "Your files are encrypted and processed securely. We never store sensitive data."
-    },
-    {
-      icon: "🔄",
-      title: "Easy Integration",
-      description: "Works seamlessly with all major e-commerce platforms and existing workflows"
-    }
-  ];
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -638,97 +556,25 @@ function HomePage({ isHistoryOpen, onToggleHistory }) {
   return (
     <div className="min-h-screen bg-white">
       <Helmet>
-        <title>Professional PDF Toolkit - Converter, Cropper & Analytics for E-commerce</title>
-        <meta name="description" content="Enterprise-grade PDF tools for e-commerce sellers. Convert, crop, and analyze product files with precision. Optimized for Flipkart, Meesho, JioMart." />
-        <meta name="keywords" content="PDF converter, PDF cropper, e-commerce tools, document processing, business tools" />
-        <meta property="og:title" content="Professional PDF Toolkit for E-commerce Sellers" />
-        <meta property="og:description" content="Convert, crop, and analyze your product files with enterprise-grade tools." />
-        <link rel="canonical" href="https://yourdomain.com/" />
+        <title>Modern PDF Tools for E-commerce | Professional Processing Suite</title>
+        <meta name="description" content="Modern, fast, and secure PDF processing tools optimized for e-commerce platforms. Convert, crop, and optimize your product files." />
       </Helmet>
 
-      <ProfessionalHero />
+      <ModernHero />
+      <ToolsGrid />
+      <FeaturesShowcase />
+      <PlatformIntegration />
+      <Workflow />
+      <FAQ />
+      <FinalCTA />
       
-      {/* Tools Section */}
-      <section id="tools-section" className="bg-gray-50 py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Complete Tool Suite
-            </h2>
-            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-              Specialized tools designed for professional e-commerce sellers and businesses
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {tools.map((tool, index) => (
-              <ToolCard key={tool.name} tool={tool} index={index} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <HowItWorks />
-
-      {/* Features Section */}
-      <section className="bg-white py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Why Choose Our Platform?
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Built with professionals in mind - reliability, security, and performance
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {features.map((feature, index) => (
-              <FeatureCard key={feature.title} feature={feature} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <PricingSection />
-      <Testimonials />
-
-      {/* Final CTA */}
-      <section className="bg-gradient-to-r from-blue-600 to-blue-700 py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
-            Ready to Streamline Your Workflow?
-          </h2>
-          <p className="text-blue-100 text-lg mb-10 max-w-2xl mx-auto">
-            Join thousands of professional sellers who trust our platform for their document processing needs.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              onClick={() => navigate('/PdfViewer')}
-              className="px-8 py-4 bg-white text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition-colors duration-200 shadow-lg"
-            >
-              Start Free Trial
-            </button>
-            <button
-              onClick={() => navigate('/ContactUs')}
-              className="px-8 py-4 bg-transparent border-2 border-white text-white font-semibold rounded-lg hover:bg-white/10 transition-colors duration-200"
-            >
-              Schedule Demo
-            </button>
-          </div>
-          <p className="text-blue-200 text-sm mt-8">
-            No credit card required • 14-day free trial • Cancel anytime
-          </p>
-        </div>
-      </section>
-
       <Footer />
       <FloatingActionButton onToggleHistory={onToggleHistory} />
     </div>
   );
 }
 
-// Layout component
+// Layout Component
 const AppLayout = ({ children, isHistoryOpen, onToggleHistory }) => {
   return (
     <div className="min-h-screen bg-white">
@@ -751,8 +597,7 @@ export default function App() {
   return (
     <>
       <Helmet>
-        <title>PDF Toolkit Pro - Professional Document Processing Tools</title>
-        <meta name="description" content="Enterprise-grade PDF and document processing tools for e-commerce professionals. Convert, crop, analyze." />
+        <title>Modern PDF Toolkit | Professional E-commerce Tools</title>
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary_large_image" />
       </Helmet>
