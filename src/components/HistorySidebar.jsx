@@ -1,142 +1,227 @@
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/clerk-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { io } from "socket.io-client";
+import { 
+  History, 
+  Clock, 
+  FileText, 
+  Image, 
+  FileSpreadsheet,
+  ChevronRight,
+  X,
+  RefreshCw,
+  Download,
+  CheckCircle2,
+  Loader2
+} from "lucide-react";
+
+const socket = io(import.meta.env.VITE_API_URL, {
+  withCredentials: true,
+  transports: ['websocket', 'polling'],
+});
 
 const HistorySidebar = () => {
   const [history, setHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isHovered, setIsHovered] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const { user, isLoaded } = useUser();
 
-  // Fetch history function
-  const fetchHistory = async () => {
+  // Fetch history
+  const fetchHistory = async (showRefresh = false) => {
     if (!user || !isLoaded) return;
-    setIsLoading(true);
+    
     try {
+      if (showRefresh) setRefreshing(true);
+      else setIsLoading(true);
+      
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/history/${user.id}`);
       const data = await res.json();
-      if (data.success) setHistory(data.history);
-      else console.error("Failed to fetch history:", data.error);
+      
+      if (data.success) {
+        setHistory(Array.isArray(data.history) ? data.history : []);
+      }
     } catch (err) {
-      console.error("Error fetching history:", err);
+      console.error("Failed to fetch history:", err);
     } finally {
       setIsLoading(false);
+      setRefreshing(false);
     }
   };
 
-  // Initial fetch
+  // Socket connection
   useEffect(() => {
-    fetchHistory();
+    if (!user || !isLoaded) return;
+
+    socket.on("connect", () => {
+      console.log("Socket connected");
+      socket.emit("register", user.id);
+    });
+    
+    socket.on("history:update", (newJob) => {
+      setHistory((prev) => {
+        if (prev.some(job => job.jobId === newJob.jobId)) return prev;
+        return [newJob, ...prev];
+      });
+    });
+
+    if (socket.connected) socket.emit("register", user.id);
+
+    return () => {
+      socket.off("connect");
+      socket.off("history:update");
+    };
   }, [user, isLoaded]);
 
-  // Polling for updates every 5 seconds when hovered
+  // Initial fetch
   useEffect(() => {
-    if (!isHovered) return;
+    if (user && isLoaded) fetchHistory();
+  }, [user, isLoaded]);
 
-    const interval = setInterval(() => {
-      fetchHistory();
-    }, 5000); // 5 seconds
+  const formatDate = (date) => {
+    if (!date) return "Unknown";
+    const d = new Date(date);
+    const now = new Date();
+    const diffMins = Math.floor((now - d) / 60000);
+    
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffMins < 1440) return `${Math.floor(diffMins / 60)} hours ago`;
+    return d.toLocaleDateString();
+  };
 
-    return () => clearInterval(interval);
-  }, [isHovered, user, isLoaded]);
-
-  const formatDate = (dateString) => {
-    const options = { 
-      year: 'numeric', month: 'short', day: 'numeric', 
-      hour: '2-digit', minute: '2-digit' 
+  const getToolIcon = (toolName) => {
+    const icons = {
+      FlipkartCropper: "🛍️",
+      MeshooCropper: "🏪",
+      JioMartCropper: "📱",
+      SelectionCropper: "✂️"
     };
-    return new Date(dateString).toLocaleDateString(undefined, options);
+    return icons[toolName] || "🛠️";
+  };
+
+  const getFileIcon = (filename) => {
+    if (filename?.endsWith('.pdf')) return <FileText className="w-4 h-4" />;
+    if (filename?.endsWith('.xlsx')) return <FileSpreadsheet className="w-4 h-4" />;
+    if (filename?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) return <Image className="w-4 h-4" />;
+    return <FileText className="w-4 h-4" />;
   };
 
   return (
     <>
-      {/* Thicker Pipe Trigger */}
-      <div 
-        className="fixed left-0 top-1/2 transform -translate-y-1/2 z-40"
-        onMouseEnter={() => setIsHovered(true)}
+      {/* Toggle Button */}
+      <button
+        onClick={() => setIsOpen(true)}
+        className="fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-blue-600 text-white px-3 py-6 rounded-r-2xl shadow-lg hover:bg-blue-700 transition-all"
       >
-        <motion.div
-          whileHover={{ scale: 1.1 }}
-          className="w-10 h-28 bg-gradient-to-b from-blue-300 to-blue-700 rounded-r-full flex items-center justify-center cursor-pointer shadow-lg"
-        >
-          <span className="text-white font-bold text-3xl">▶️</span>
-        </motion.div>
-      </div>
+        <History className="w-5 h-5" />
+        <ChevronRight className="w-4 h-4 mt-2" />
+      </button>
 
-      {/* Sliding Sidebar */}
       <AnimatePresence>
-        {isHovered && (
+        {isOpen && (
           <motion.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 320, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed top-0 left-0 h-full bg-gradient-to-b from-blue-50 to-indigo-50 shadow-xl z-50 overflow-y-auto border-r border-gray-200"
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+            initial={{ x: -400 }}
+            animate={{ x: 0 }}
+            exit={{ x: -400 }}
+            transition={{ type: "spring", damping: 25 }}
+            className="fixed top-0 left-0 h-full w-[380px] bg-white shadow-2xl z-50 flex flex-col"
           >
-            <div className="p-6 w-[320px]">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Recent work</h2>
-                <button
-                  onClick={() => setIsHovered(false)}
-                  className="text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+            {/* Header */}
+            <div className="bg-blue-600 p-5 text-white">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <History className="w-6 h-6" />
+                  <h2 className="font-bold text-xl">Job History</h2>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => fetchHistory(true)}
+                    disabled={refreshing}
+                    className="hover:bg-blue-700 rounded-lg p-2 transition-colors"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
+                    <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                  </button>
+                  <button 
+                    onClick={() => setIsOpen(false)}
+                    className="hover:bg-blue-700 rounded-lg p-2 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
+              <p className="text-sm text-blue-100 mt-2">{history.length} total jobs</p>
+            </div>
 
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4">
               {isLoading ? (
-                <div className="flex justify-center items-center h-40">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="flex justify-center items-center h-64">
+                  <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
                 </div>
               ) : history.length === 0 ? (
-                <div className="text-center py-10">
-                  <p className="text-gray-500">No processing history found.</p>
+                <div className="text-center py-12">
+                  <History className="w-16 h-16 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No history yet</p>
+                  <p className="text-sm text-gray-400 mt-1">Process files to see them here</p>
                 </div>
               ) : (
-                <div className="space-y-4 max-h-[calc(100vh-150px)] overflow-y-auto pr-2">
-                  {history.map((job) => (
-                    <motion.div
-                      key={job.jobId}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="bg-white p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-gray-100"
+                <div className="space-y-3">
+                  {history.map((job, index) => (
+                    <div
+                      key={job.jobId || index}
+                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
                     >
-                      <p className="font-semibold text-sm text-gray-700 mb-1">
-                        Job ID: <span className="text-blue-600">{job.jobId}</span>
-                      </p>
-                      <p className="text-xs text-gray-500 mb-3">
-                        {formatDate(job.timestamp)}
-                      </p>
-                      <div className="mt-2 space-y-2">
-                        {job.outputs.map((output, idx) => (
-                          <a
-                            key={idx}
-                            href={`${import.meta.env.VITE_API_URL}${output.url}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-gray-700 hover:text-blue-600 transition-colors flex items-center text-sm group"
-                          >
-                            <span className="truncate group-hover:underline">{output.name}</span>
-                          </a>
-                        ))}
+                      {/* Job Header */}
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">{getToolIcon(job.toolName)}</span>
+                          <div>
+                            <p className="font-semibold text-gray-800">
+                              {job.toolName?.replace('Cropper', '') || 'Unknown'}
+                            </p>
+                            <div className="flex items-center gap-1 text-xs text-gray-500">
+                              <Clock className="w-3 h-3" />
+                              <span>{formatDate(job.timestamp)}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded">
+                            {job.fileCount || job.outputs?.length || 0} files
+                          </span>
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        </div>
                       </div>
-                    </motion.div>
+
+                      {/* Output Files */}
+                      {job.outputs?.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-xs font-semibold text-gray-600">Output Files</p>
+                          {job.outputs.slice(0, 3).map((file, i) => (
+                            <a
+                              key={i}
+                              href={`${import.meta.env.VITE_API_URL}${file.url}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                            >
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                {getFileIcon(file.name)}
+                                <span className="text-sm text-gray-700 truncate">{file.name}</span>
+                              </div>
+                              <Download className="w-4 h-4 text-gray-400" />
+                            </a>
+                          ))}
+                          {job.outputs.length > 3 && (
+                            <p className="text-xs text-gray-400 text-center">
+                              +{job.outputs.length - 3} more files
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}
