@@ -398,7 +398,7 @@ const MeshooCropper = () => {
                           <p className="text-xs text-gray-700 truncate flex-1">{file.name}</p>
                         </div>
                         <a
-                          href={`${import.meta.env.VITE_API_URL}${file.url}`}
+                          href={file.url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="px-2 py-1 bg-white border border-gray-300 rounded text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-1"

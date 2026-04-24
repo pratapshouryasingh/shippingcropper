@@ -202,7 +202,7 @@ const HistorySidebar = () => {
                           {job.outputs.slice(0, 3).map((file, i) => (
                             <a
                               key={i}
-                              href={`${import.meta.env.VITE_API_URL}${file.url}`}
+                              href={file.url}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"

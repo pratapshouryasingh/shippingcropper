@@ -92,6 +92,26 @@ const FlipkartCropper = () => {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  // Handle file download - forces download instead of opening in browser
+  const handleDownload = async (fileUrl, fileName) => {
+    try {
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName || 'download.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed:', error);
+      // Fallback: open in new tab if fetch fails
+      window.open(fileUrl, '_blank');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -350,6 +370,12 @@ const FlipkartCropper = () => {
                     </div>
                   )}
 
+                  {successMessage && (
+                    <div className="mx-4 mb-4 p-3 bg-green-50 border-l-4 border-green-500 rounded">
+                      <p className="text-xs text-green-700">{successMessage}</p>
+                    </div>
+                  )}
+
                   {/* Reset Button */}
                   {files.length > 0 && (
                     <div className="px-4 pb-4 flex justify-end">
@@ -390,17 +416,15 @@ const FlipkartCropper = () => {
                           </svg>
                           <p className="text-xs text-gray-700 truncate flex-1">{file.name}</p>
                         </div>
-                        <a
-                          href={`${import.meta.env.VITE_API_URL}${file.url}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-2 py-1 bg-white border border-gray-300 rounded text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-1"
+                        <button
+                          onClick={() => handleDownload(file.url, file.name)}
+                          className="px-2 py-1 bg-white border border-gray-300 rounded text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-1 transition"
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                           </svg>
                           Download
-                        </a>
+                        </button>
                       </div>
                     ))}
                   </div>

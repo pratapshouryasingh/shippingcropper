@@ -153,7 +153,8 @@ const PdfCropper = () => {
         canvas.height = scaledViewport.height;
         canvas.width = scaledViewport.width;
         
-        ctx.clearRect(0, 0, canvas.width, canvas.width);
+        // FIXED: changed canvas.width to canvas.height in clearRect
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         
         await page.render({ 
           canvasContext: ctx, 
@@ -193,42 +194,33 @@ const PdfCropper = () => {
     setDownloadFilenames([]);
 
     try {
-      const page = await currentPdfDoc.getPage(pageNum);
-      const viewport = page.getViewport({ scale: 1 });
-      
       const canvas = canvasRef.current;
       const canvasWidth = canvas.width;
       const canvasHeight = canvas.height;
 
-      const scaleX = viewport.width / canvasWidth;
-      const scaleY = viewport.height / canvasHeight;
+      // ✅ REPLACED pixel scaling with normalized (0-1) coordinates
 
-      let pdfCoords = {
-        x: Math.round(cropBox.x * scaleX),
-        y: Math.round((canvasHeight - (cropBox.y + cropBox.height)) * scaleY),
-        width: Math.round(cropBox.width * scaleX),
-        height: Math.round(cropBox.height * scaleY),
-        canvasWidth: viewport.width,
-        canvasHeight: viewport.height,
-        page: pageNum
-      };
+      let normalizedCoords = {
+      x: cropBox.x / canvasWidth,
 
-      pdfCoords.x = Math.max(0, pdfCoords.x);
-      pdfCoords.y = Math.max(0, pdfCoords.y);
+  // 🔥 FIXED Y FLIP
+      y: 1 - ((cropBox.y + cropBox.height) / canvasHeight),
 
-      if (pdfCoords.x + pdfCoords.width > viewport.width) {
-        pdfCoords.width = viewport.width - pdfCoords.x;
-      }
-      if (pdfCoords.y + pdfCoords.height > viewport.height) {
-        pdfCoords.height = viewport.height - pdfCoords.y;
-      }
+      width: cropBox.width / canvasWidth,
+      height: cropBox.height / canvasHeight,
 
-      if (pdfCoords.width <= 0 || pdfCoords.height <= 0) {
-        throw new Error("Invalid crop box. Please select a valid area inside the page.");
-      }
+      page: pageNum
+};
 
+      // Ensure normalized coordinates are within valid range [0,1]
+      normalizedCoords.x = Math.max(0, Math.min(1, normalizedCoords.x));
+      normalizedCoords.y = Math.max(0, Math.min(1, normalizedCoords.y));
+      normalizedCoords.width = Math.max(0.01, Math.min(1 - normalizedCoords.x, normalizedCoords.width));
+      normalizedCoords.height = Math.max(0.01, Math.min(1 - normalizedCoords.y, normalizedCoords.height));
+
+      // ✅ Updated payload - removed canvasWidth/canvasHeight fields
       const cropData = {
-        crop: pdfCoords,
+        crop: normalizedCoords,
         applyTo: "all"
       };
 
@@ -421,24 +413,22 @@ const PdfCropper = () => {
     setCurrentPdfIndex(index);
   };
 
-  const calculatePdfCoordinates = () => {
-    if (!cropBox || !canvasRef.current || !originalPageSize.width) return null;
+  // Updated to show normalized coordinates (0-1 range) in info panel
+  const calculateNormalizedCoordinates = () => {
+    if (!cropBox || !canvasRef.current) return null;
     
     const canvasWidth = canvasRef.current.width;
     const canvasHeight = canvasRef.current.height;
     
-    const scaleX = originalPageSize.width / canvasWidth;
-    const scaleY = originalPageSize.height / canvasHeight;
-    
     return {
-      x: Math.round(cropBox.x * scaleX),
-      y: Math.round((canvasHeight - (cropBox.y + cropBox.height)) * scaleY),
-      width: Math.round(cropBox.width * scaleX),
-      height: Math.round(cropBox.height * scaleY)
+      x: (cropBox.x / canvasWidth).toFixed(3),
+      y: (cropBox.y / canvasHeight).toFixed(3),
+      width: (cropBox.width / canvasWidth).toFixed(3),
+      height: (cropBox.height / canvasHeight).toFixed(3)
     };
   };
 
-  const pdfCoords = calculatePdfCoordinates();
+  const normalizedCoordsDisplay = calculateNormalizedCoordinates();
 
   const formatFileName = (name) => {
     if (name.length > 30) {
@@ -748,19 +738,22 @@ const PdfCropper = () => {
                         )}
                       </div>
 
-                      {/* Info panel coordinates */}
-                      {showInfoPanel && cropBox && originalPageSize.width > 0 && pdfCoords && (
+                      {/* Info panel coordinates - Updated to show normalized (0-1) values */}
+                      {showInfoPanel && cropBox && normalizedCoordsDisplay && (
                         <motion.div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
                           <div className="flex items-center gap-2 text-indigo-700 mb-3">
                             <FiCornerUpRight />
-                            <span className="font-semibold">Crop dimensions (PDF points)</span>
+                            <span className="font-semibold">Crop dimensions (normalized 0-1 coordinates)</span>
                           </div>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                            <div className="bg-gray-50 p-2 rounded-lg"><span className="text-gray-500">X:</span> <strong>{pdfCoords.x} pt</strong></div>
-                            <div className="bg-gray-50 p-2 rounded-lg"><span className="text-gray-500">Y:</span> <strong>{pdfCoords.y} pt</strong></div>
-                            <div className="bg-gray-50 p-2 rounded-lg"><span className="text-gray-500">Width:</span> <strong>{pdfCoords.width} pt</strong></div>
-                            <div className="bg-gray-50 p-2 rounded-lg"><span className="text-gray-500">Height:</span> <strong>{pdfCoords.height} pt</strong></div>
+                            <div className="bg-gray-50 p-2 rounded-lg"><span className="text-gray-500">X:</span> <strong>{normalizedCoordsDisplay.x}</strong></div>
+                            <div className="bg-gray-50 p-2 rounded-lg"><span className="text-gray-500">Y:</span> <strong>{normalizedCoordsDisplay.y}</strong></div>
+                            <div className="bg-gray-50 p-2 rounded-lg"><span className="text-gray-500">Width:</span> <strong>{normalizedCoordsDisplay.width}</strong></div>
+                            <div className="bg-gray-50 p-2 rounded-lg"><span className="text-gray-500">Height:</span> <strong>{normalizedCoordsDisplay.height}</strong></div>
                           </div>
+                          <p className="text-xs text-gray-400 mt-3 text-center">
+                            Coordinates are normalized relative to page dimensions (0 = left/top, 1 = right/bottom)
+                          </p>
                         </motion.div>
                       )}
                     </div>

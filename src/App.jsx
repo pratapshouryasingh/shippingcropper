@@ -9,6 +9,7 @@ import JioMartCropper from "./pages/JioMartCropper";
 import ContactUs from "./pages/ContactUs";
 import PdfCropper from "./pages/crop";
 import HistorySidebar from "./components/HistorySidebar";
+import AdminPanel from "./pages/AdminPanel"; // Add this import
 import { Helmet } from "react-helmet";
 import { motion } from "framer-motion";
 import "./App.css";
@@ -32,6 +33,7 @@ const FloatingActionButton = ({ onToggleHistory }) => {
     { label: "PDF Converter", path: "/PdfViewer", icon: "fas fa-file-pdf" },
     { label: "PDF Cropper", path: "/crop", icon: "fas fa-crop-alt" },
     { label: "Contact Support", path: "/ContactUs", icon: "fas fa-headset" },
+    { label: "Admin Panel", path: "/admin", icon: "fas fa-lock" }, // Add this
     { label: "History", action: onToggleHistory, icon: "fas fa-history" }
   ];
 
@@ -518,6 +520,7 @@ export default function App() {
           <Route path="/JioMartCropper" element={<JioMartCropper />} />
           <Route path="/ContactUs" element={<ContactUs />} />
           <Route path="/crop" element={<PdfCropper />} />
+          <Route path="/admin" element={<AdminPanel />} /> {/* Add this route */}
         </Routes>
       </AppLayout>
     </>
