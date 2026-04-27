@@ -26,21 +26,13 @@ export default function AdminPanel() {
   const [deleting, setDeleting] = useState(false);
   const [allHistory, setAllHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [deleteFromBackend, setDeleteFromBackend] = useState(false);
 
   const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || "admin@example.com";
   const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || "admin123";
-  const BLOB_BASE_URL = import.meta.env.VITE_BLOB_BASE_URL;
-  let BLOB_SAS_TOKEN = import.meta.env.VITE_BLOB_SAS_TOKEN || "";
+  const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
-  const tools = ["All Files", "FlipkartCropper", "MeshooCropper", "JioMartCropper"];
-
-  // Clean SAS token (remove leading ? if present)
-  const cleanSasToken = () => {
-    if (BLOB_SAS_TOKEN.startsWith("?")) {
-      return BLOB_SAS_TOKEN.substring(1);
-    }
-    return BLOB_SAS_TOKEN;
-  };
+  const tools = ["All Files", "FlipkartCropper", "MeshooCropper", "JioMartCropper", "FrontendCropper"];
 
   // Handle login function
   const handleLogin = (e) => {
@@ -55,86 +47,41 @@ export default function AdminPanel() {
   // Fetch ALL users' history data (admin endpoint)
   const fetchAllUsersHistory = async () => {
     setHistoryLoading(true);
+    console.log("🔄 Fetching user history...");
     try {
-      // Use admin endpoint to get all users' history
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/all-history`);
+      const res = await fetch(`${API_BASE_URL}/api/admin/all-history`);
       const data = await res.json();
       
       if (data.success && Array.isArray(data.history)) {
         setAllHistory(data.history);
-        console.log(`Loaded history for ${data.history.length} jobs from all users`);
+        console.log(`✅ Loaded history for ${data.history.length} jobs from all users`);
+        
+        if (data.history.length > 0) {
+          console.log("📋 Sample job from history:", data.history[0]);
+        }
       } else {
-        console.error("Admin history endpoint not found. Please create /api/admin/all-history");
+        console.error("❌ Admin history endpoint failed");
         setAllHistory([]);
       }
     } catch (err) {
-      console.error("Failed to fetch all users history:", err);
+      console.error("❌ Failed to fetch all users history:", err);
       setAllHistory([]);
     } finally {
       setHistoryLoading(false);
     }
   };
 
-  // Extract timestamp from filename (format: *_YYYY-MM-DD_HH-MM-SS.*)
-  const extractTimestampFromFilename = (filename) => {
-    const match = filename.match(/(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})/);
-    if (match) {
-      return match[1].replace(/_/g, ' ').replace(/-/g, ':');
-    }
-    return null;
+  // Extract jobId directly from blob path
+  const extractJobIdFromPath = (blobPath) => {
+    if (!blobPath) return null;
+    const match = blobPath.match(/job_\d+/);
+    return match ? match[0] : null;
   };
 
-  // Parse date from various formats
-  const parseJobDate = (dateStr) => {
-    if (!dateStr) return null;
-    try {
-      if (dateStr.includes('T')) {
-        return new Date(dateStr);
-      }
-      const [date, time] = dateStr.split(' ');
-      if (date && time) {
-        const [year, month, day] = date.split('-');
-        const [hour, minute, second] = time.split(':');
-        return new Date(year, month - 1, day, hour, minute, second);
-      }
-    } catch (e) {
-      console.error("Date parse error:", e);
-    }
-    return null;
-  };
-
-  // Find which job produced this file by matching timestamps across all users
-  const findMatchingJob = (filename, blobDate) => {
-    const fileTimestamp = extractTimestampFromFilename(filename);
-    
-    // Try to find a job with matching timestamp from any user
-    for (const job of allHistory) {
-      const jobDate = parseJobDate(job.timestamp);
-      if (!jobDate) continue;
-      
-      // If file has timestamp, compare with job timestamp (within 2 minutes window)
-      if (fileTimestamp) {
-        const fileDate = parseJobDate(fileTimestamp);
-        if (fileDate && Math.abs(jobDate - fileDate) < 120000) { // Within 2 minutes
-          return job;
-        }
-      }
-      
-      // Check if filename contains jobId
-      if (job.jobId && filename.includes(job.jobId)) {
-        return job;
-      }
-      
-      // Check output files in job
-      if (job.outputs && Array.isArray(job.outputs)) {
-        const matchingOutput = job.outputs.find(out => out.name === filename);
-        if (matchingOutput) {
-          return job;
-        }
-      }
-    }
-    
-    return null;
+  // Find matching job from history
+  const findMatchingJobById = (jobId) => {
+    if (!jobId || allHistory.length === 0) return null;
+    return allHistory.find(job => job.jobId === jobId);
   };
 
   // Get tool icon
@@ -143,88 +90,79 @@ export default function AdminPanel() {
       FlipkartCropper: "🛍️",
       MeshooCropper: "🏪",
       JioMartCropper: "📱",
+      FrontendCropper: "✂️",
       SelectionCropper: "✂️"
     };
     return icons[toolName] || "🛠️";
   };
 
-  // Direct BLOB fetch with CORRECT query string
+  // Get user display name
+  const getUserDisplay = (job) => {
+    if (!job) return "Unknown User";
+    if (job.userEmail) return job.userEmail;
+    if (job.userName) return job.userName;
+    if (job.userId) return `User: ${job.userId.substring(0, 8)}...`;
+    return "Unknown User";
+  };
+
+  // 🔥 NEW: Fetch files from BACKEND API instead of direct blob
   const fetchFiles = async () => {
+    console.log("🚀 fetchFiles called - using backend API");
     setLoading(true);
     try {
-      const cleanSas = cleanSasToken();
-      const url = `${BLOB_BASE_URL}?restype=container&comp=list&${cleanSas}`;
+      // Call backend API endpoint
+      const response = await fetch(`${API_BASE_URL}/api/admin/files`);
       
-      console.log("Fetching from URL:", url);
-      
-      const response = await fetch(url);
+      console.log("📡 Response status:", response.status);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
-      const text = await response.text();
-      console.log("Response XML:", text);
+      const data = await response.json();
+      console.log("📦 Backend response:", data);
       
-      const parser = new DOMParser();
-      const xml = parser.parseFromString(text, "application/xml");
-      
-      const errorCode = xml.getElementsByTagName("Code")[0]?.textContent;
-      if (errorCode) {
-        console.error("Azure Error:", errorCode);
-        alert(`Azure Storage Error: ${errorCode}. Please check your SAS token and permissions.`);
-        setFiles([]);
-        setLoading(false);
-        return;
+      if (!data.success) {
+        throw new Error(data.error || "Failed to fetch files");
       }
-
-      const blobs = Array.from(xml.getElementsByTagName("Blob"));
       
-      const parsedFiles = blobs.map((blob) => {
-        const name = blob.getElementsByTagName("Name")[0]?.textContent || "";
-        const size = blob.getElementsByTagName("Content-Length")[0]?.textContent || "0";
-        const lastModified = blob.getElementsByTagName("Last-Modified")[0]?.textContent;
-        
-        // Find matching job from all users' history
-        const matchingJob = findMatchingJob(name, lastModified);
+      // Parse files from backend response
+      const parsedFiles = data.files.map(file => {
+        const jobId = extractJobIdFromPath(file.name);
+        const matchingJob = findMatchingJobById(jobId);
         
         let tool = "Unknown";
-        let jobId = "unknown";
         let userId = "unknown";
         let userName = "Unknown User";
         
         if (matchingJob) {
           tool = matchingJob.toolName || "Unknown";
-          jobId = matchingJob.jobId || "unknown";
           userId = matchingJob.userId || "unknown";
-          userName = matchingJob.userEmail || matchingJob.userName || "Unknown User";
-          console.log(`Matched ${name} -> User: ${userName}, Tool: ${tool}, Job: ${jobId}`);
+          userName = getUserDisplay(matchingJob);
         }
         
         return {
-          name: name,
-          fullPath: name,
-          size: parseInt(size, 10) || 0,
-          url: `${BLOB_BASE_URL}/${encodeURIComponent(name)}?${cleanSas}`,
+          name: file.name.split('/').pop(),
+          fullPath: file.name,
+          size: file.size || 0,
+          url: file.url, // URL from backend (may have SAS or public URL)
           tool: tool,
-          jobId: jobId,
+          jobId: jobId || "unknown",
           userId: userId,
           userName: userName,
-          lastModified: lastModified,
+          lastModified: file.lastModified,
           toolIcon: getToolIcon(tool),
         };
       });
       
-      // Sort files by last modified date (newest first)
-      parsedFiles.sort((a, b) => {
-        const dateA = new Date(a.lastModified);
-        const dateB = new Date(b.lastModified);
-        return dateB - dateA;
-      });
-      
       setFiles(parsedFiles);
+      
+      const matchedCount = parsedFiles.filter(f => f.tool !== "Unknown").length;
+      const unknownCount = parsedFiles.filter(f => f.tool === "Unknown").length;
+      console.log(`📊 Matching Stats: ${matchedCount} matched, ${unknownCount} unknown out of ${parsedFiles.length} total files`);
+      
     } catch (err) {
-      console.error("Blob fetch error:", err);
+      console.error("❌ Fetch files error:", err);
       alert(`Failed to fetch files: ${err.message}`);
       setFiles([]);
     } finally {
@@ -232,20 +170,30 @@ export default function AdminPanel() {
     }
   };
 
-  // Delete with proper URL construction
+  // 🔥 NEW: Delete file using backend API
   const handleDelete = async (file, skipConfirm = false) => {
     if (!skipConfirm && !window.confirm(`Are you sure you want to delete ${file.name}?`)) return;
     
     setDeleting(true);
     try {
-      const cleanSas = cleanSasToken();
-      const deleteUrl = `${BLOB_BASE_URL}/${encodeURIComponent(file.fullPath)}?${cleanSas}`;
+      // Extract tool name from file
+      const toolName = file.tool;
+      const jobId = file.jobId;
+      const filename = encodeURIComponent(file.name);
+      
+      // Call backend delete endpoint
+      const deleteUrl = `${API_BASE_URL}/api/admin/files/${toolName}/${jobId}/${filename}`;
+      console.log("🗑️ Deleting:", deleteUrl);
       
       const response = await fetch(deleteUrl, { method: "DELETE" });
       
-      if (response.ok || response.status === 202 || response.status === 204) {
+      if (response.ok) {
+        const result = await response.json();
+        console.log("✅ Delete successful:", result);
+        
         setFiles(prevFiles => prevFiles.filter(f => f.fullPath !== file.fullPath));
         setSelectedFiles(prev => prev.filter(f => f.fullPath !== file.fullPath));
+        
         if (!skipConfirm) alert(`${file.name} deleted successfully`);
       } else {
         const errorText = await response.text();
@@ -260,16 +208,42 @@ export default function AdminPanel() {
     }
   };
 
+  // Delete selected files
   const handleDeleteSelected = async () => {
+    if (selectedFiles.length === 0) {
+      alert("No files selected");
+      return;
+    }
+    
     if (!window.confirm(`Delete ${selectedFiles.length} selected files?`)) return;
     
+    setDeleting(true);
+    let successCount = 0;
+    
     for (const file of selectedFiles) {
-      await handleDelete(file, true);
+      try {
+        const toolName = file.tool;
+        const jobId = file.jobId;
+        const filename = encodeURIComponent(file.name);
+        const deleteUrl = `${API_BASE_URL}/api/admin/files/${toolName}/${jobId}/${filename}`;
+        
+        const response = await fetch(deleteUrl, { method: "DELETE" });
+        
+        if (response.ok) {
+          successCount++;
+          setFiles(prevFiles => prevFiles.filter(f => f.fullPath !== file.fullPath));
+        }
+      } catch (err) {
+        console.error(`Failed to delete ${file.name}:`, err);
+      }
     }
+    
     setSelectedFiles([]);
-    alert(`Successfully deleted ${selectedFiles.length} files`);
+    setDeleting(false);
+    alert(`Successfully deleted ${successCount} of ${selectedFiles.length} files`);
   };
 
+  // Delete all files in current tab
   const handleDeleteAll = async () => {
     const filesToDelete = activeTab === "All Files" 
       ? files 
@@ -284,34 +258,72 @@ export default function AdminPanel() {
       return;
     }
 
+    setDeleting(true);
+    let successCount = 0;
+    
     for (const file of filesToDelete) {
-      await handleDelete(file, true);
+      try {
+        const toolName = file.tool;
+        const jobId = file.jobId;
+        const filename = encodeURIComponent(file.name);
+        const deleteUrl = `${API_BASE_URL}/api/admin/files/${toolName}/${jobId}/${filename}`;
+        
+        const response = await fetch(deleteUrl, { method: "DELETE" });
+        
+        if (response.ok) {
+          successCount++;
+          setFiles(prevFiles => prevFiles.filter(f => f.fullPath !== file.fullPath));
+        }
+      } catch (err) {
+        console.error(`Failed to delete ${file.name}:`, err);
+      }
     }
+    
     setSelectedFiles([]);
-    alert(`Successfully deleted ${filesToDelete.length} files`);
+    setDeleting(false);
+    alert(`Successfully deleted ${successCount} of ${filesToDelete.length} files`);
   };
 
+  // Download selected files as zip
   const handleDownloadSelected = async () => {
-    if (!selectedFiles.length) return;
+    if (!selectedFiles.length) {
+      alert("No files selected");
+      return;
+    }
     
     const zip = new JSZip();
+    let downloadCount = 0;
+    
     try {
-      await Promise.all(selectedFiles.map(async (file) => {
-        const response = await fetch(file.url);
-        if (!response.ok) throw new Error(`Failed to fetch ${file.name}`);
-        const blob = await response.blob();
-        zip.file(file.name, blob);
-      }));
+      for (const file of selectedFiles) {
+        try {
+          const response = await fetch(file.url);
+          if (response.ok) {
+            const blob = await response.blob();
+            zip.file(file.name, blob);
+            downloadCount++;
+          } else {
+            console.warn(`Failed to fetch ${file.name}: ${response.status}`);
+          }
+        } catch (err) {
+          console.error(`Error downloading ${file.name}:`, err);
+        }
+      }
       
-      const content = await zip.generateAsync({ type: "blob" });
-      saveAs(content, `selected_files_${Date.now()}.zip`);
-      alert(`Downloaded ${selectedFiles.length} files successfully`);
+      if (downloadCount > 0) {
+        const content = await zip.generateAsync({ type: "blob" });
+        saveAs(content, `selected_files_${Date.now()}.zip`);
+        alert(`Downloaded ${downloadCount} of ${selectedFiles.length} files successfully`);
+      } else {
+        alert("No files could be downloaded");
+      }
     } catch (err) {
       console.error(err);
       alert("Failed to download selected files");
     }
   };
 
+  // Download all files in current tab as zip
   const handleDownloadAll = async () => {
     const filesToDownload = activeTab === "All Files" 
       ? files 
@@ -323,47 +335,67 @@ export default function AdminPanel() {
     }
     
     const zip = new JSZip();
+    let downloadCount = 0;
+    
     try {
-      await Promise.all(filesToDownload.map(async (file) => {
-        const response = await fetch(file.url);
-        if (!response.ok) throw new Error(`Failed to fetch ${file.name}`);
-        const blob = await response.blob();
-        zip.file(file.name, blob);
-      }));
+      for (const file of filesToDownload) {
+        try {
+          const response = await fetch(file.url);
+          if (response.ok) {
+            const blob = await response.blob();
+            zip.file(file.name, blob);
+            downloadCount++;
+          } else {
+            console.warn(`Failed to fetch ${file.name}: ${response.status}`);
+          }
+        } catch (err) {
+          console.error(`Error downloading ${file.name}:`, err);
+        }
+      }
       
-      const content = await zip.generateAsync({ type: "blob" });
-      saveAs(content, `${activeTab === "All Files" ? "all_files" : activeTab}_${Date.now()}.zip`);
-      alert(`Downloaded ${filesToDownload.length} files successfully`);
+      if (downloadCount > 0) {
+        const content = await zip.generateAsync({ type: "blob" });
+        saveAs(content, `${activeTab === "All Files" ? "all_files" : activeTab}_${Date.now()}.zip`);
+        alert(`Downloaded ${downloadCount} of ${filesToDownload.length} files successfully`);
+      } else {
+        alert("No files could be downloaded");
+      }
     } catch (err) {
       console.error(err);
-      alert("Failed to download all files");
+      alert("Failed to download files");
     }
   };
 
-  // Fetch history first, then fetch files
+  // Load data when logged in
   useEffect(() => {
     if (isLoggedIn) {
+      console.log("🔐 Logged in, fetching data...");
       fetchAllUsersHistory();
+      fetchFiles();
     }
   }, [isLoggedIn]);
 
+  // Refetch files when history loads to update matching
   useEffect(() => {
-    if (isLoggedIn && BLOB_BASE_URL && BLOB_SAS_TOKEN && !historyLoading) {
+    if (isLoggedIn && !historyLoading && files.length > 0) {
+      console.log("🔄 History loaded, refreshing files to update matching...");
       fetchFiles();
     }
-  }, [isLoggedIn, historyLoading]);
+  }, [historyLoading]);
 
+  // Format utilities
   const formatSize = (bytes) => {
+    if (!bytes || bytes === 0) return "0 B";
     if (bytes < 1024) return bytes + " B";
-    else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB";
-    else if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + " MB";
-    else return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB";
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
   };
 
   const getFileDate = (lastModified) => {
     if (!lastModified) return "N/A";
     const date = new Date(lastModified);
-    return date.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return date.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
   const toggleSelectFile = (file) => {
@@ -374,17 +406,22 @@ export default function AdminPanel() {
     }
   };
 
+  // Statistics
   const todayStr = new Date().toISOString().slice(0, 10);
   const currentMonth = new Date().toISOString().slice(0, 7);
+  
   const filesToday = files.filter(f => {
+    if (!f.lastModified) return false;
     const date = new Date(f.lastModified).toISOString().slice(0, 10);
     return date === todayStr;
   }).length;
+  
   const filesThisMonth = files.filter(f => {
+    if (!f.lastModified) return false;
     const date = new Date(f.lastModified).toISOString().slice(0, 7);
     return date === currentMonth;
   }).length;
-
+  
   const filteredFiles = activeTab === "All Files" 
     ? files 
     : files.filter(f => f.tool === activeTab);
@@ -393,19 +430,19 @@ export default function AdminPanel() {
   const totalSizeBytes = files.reduce((acc, f) => acc + (f.size || 0), 0);
   const maxSpace = 5 * 1024 * 1024 * 1024;
 
-  const pdfCount = files.filter(f => f.name.endsWith(".pdf")).length;
-  const excelCount = files.filter(f => f.name.endsWith(".xlsx")).length;
+  const pdfCount = files.filter(f => f.name?.endsWith(".pdf")).length;
+  const excelCount = files.filter(f => f.name?.endsWith(".xlsx")).length;
 
-  const toolCounts = ["FlipkartCropper", "MeshooCropper", "JioMartCropper"].map(tool => 
+  const toolCounts = ["FlipkartCropper", "MeshooCropper", "JioMartCropper", "FrontendCropper"].map(tool => 
     files.filter(f => f.tool === tool).length
   );
   
   const pieData = {
-    labels: ["FlipkartCropper", "MeshooCropper", "JioMartCropper"],
+    labels: ["FlipkartCropper", "MeshooCropper", "JioMartCropper", "FrontendCropper"],
     datasets: [
       {
         data: toolCounts,
-        backgroundColor: ["#3b82f6", "#10b981", "#f59e0b"],
+        backgroundColor: ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6"],
         borderWidth: 1,
       },
     ],
@@ -506,7 +543,7 @@ export default function AdminPanel() {
                 activeTab === tool ? "bg-blue-600 text-white shadow-md" : "text-gray-600 hover:bg-gray-100"
               }`}
             >
-              {tool === "All Files" ? "📁 All Files" : tool === "FlipkartCropper" ? "🛍️ Flipkart" : tool === "MeshooCropper" ? "🏪 Meesho" : "📱 JioMart"}
+              {tool === "All Files" ? "📁 All Files" : tool === "FlipkartCropper" ? "🛍️ Flipkart" : tool === "MeshooCropper" ? "🏪 Meesho" : tool === "JioMartCropper" ? "📱 JioMart" : "✂️ Cropper"}
             </button>
           ))}
         </div>
@@ -549,10 +586,10 @@ export default function AdminPanel() {
 
         {/* File List */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          {loading || historyLoading ? (
+          {loading ? (
             <div className="p-8 text-center">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-              <p className="mt-2 text-gray-500">{historyLoading ? "Loading user history..." : "Loading files from Azure Blob..."}</p>
+              <p className="mt-2 text-gray-500">Loading files from server...</p>
             </div>
           ) : filteredFiles.length > 0 ? (
             <ul className="divide-y divide-gray-100">
@@ -571,9 +608,13 @@ export default function AdminPanel() {
                         <span className="font-semibold text-gray-800 truncate">{file.name}</span>
                       </div>
                       <div className="flex flex-wrap gap-3 text-xs text-gray-500">
-                        <span className="px-2 py-0.5 bg-gray-100 rounded">🔧 {file.tool}</span>
-                        <span className="px-2 py-0.5 bg-gray-100 rounded">👤 {file.userName}</span>
-                        <span>🆔 {file.jobId !== "unknown" ? file.jobId.substring(0, 20) : "N/A"}</span>
+                        <span className={`px-2 py-0.5 rounded ${file.tool === "Unknown" ? "bg-red-100 text-red-700" : "bg-gray-100"}`}>
+                          🔧 {file.tool}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded ${file.userName === "Unknown User" ? "bg-red-100 text-red-700" : "bg-gray-100"}`}>
+                          👤 {file.userName}
+                        </span>
+                        <span className="px-2 py-0.5 bg-gray-100 rounded font-mono">🆔 {file.jobId !== "unknown" ? file.jobId : "N/A"}</span>
                         <span>💾 {formatSize(file.size)}</span>
                         <span>📅 {getFileDate(file.lastModified)}</span>
                       </div>
@@ -604,7 +645,7 @@ export default function AdminPanel() {
             <div className="p-8 text-center">
               <div className="text-4xl mb-2">📁</div>
               <h3 className="text-lg font-medium text-gray-700">No files found</h3>
-              <p className="text-gray-500">No files found in Azure Blob Storage</p>
+              <p className="text-gray-500">No files found in the system</p>
             </div>
           )}
         </div>

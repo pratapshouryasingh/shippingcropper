@@ -114,15 +114,18 @@ const footer = () => {
             <div className="text-gray-400 text-sm">
               Developed by <a href="https://pratap-portfolio-beta.vercel.app/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Pratap</a>
             </div>
+            <Link to="/admin" className="text-gray-400 hover:text-white text-sm transition-colors">
+              Admin Panel
+            </Link>
             <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">
               Privacy Policy
             </a>
             <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">
               Terms of Service
             </a>
-            <a href="/ContactUs" className="text-gray-400 hover:text-white text-sm transition-colors">
+            <Link to="/ContactUs" className="text-gray-400 hover:text-white text-sm transition-colors">
               Contact Us
-            </a>
+            </Link>
           </div>
         </div>
       </div>

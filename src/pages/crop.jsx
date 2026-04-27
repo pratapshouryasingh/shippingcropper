@@ -5,11 +5,11 @@ import axios from "axios";
 import { useUser, useClerk } from "@clerk/clerk-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Helmet } from "react-helmet";
+import { io } from "socket.io-client";
 import { 
   FiUpload, FiDownload, FiCrop, FiX, FiChevronLeft, 
   FiChevronRight, FiInfo, FiCheck, FiAlertCircle, FiLoader, FiFile,
-  FiGrid, FiType, FiTrash2, FiFileText, FiEye, FiEyeOff,
-  FiPlus, FiMinus, FiSliders, FiCornerUpRight, FiFolder
+  FiGrid, FiTrash2, FiFileText, FiPlus, FiSliders, FiCornerUpRight, FiFolder
 } from "react-icons/fi";
 
 const PdfCropper = () => {
@@ -17,6 +17,8 @@ const PdfCropper = () => {
   const containerRef = useRef(null);
   const fileInputRef = useRef(null);
   const addMoreInputRef = useRef(null);
+  const socketRef = useRef(null);
+  
   const [pdfDocs, setPdfDocs] = useState([]);
   const [currentPdfIndex, setCurrentPdfIndex] = useState(0);
   const [pageNum, setPageNum] = useState(1);
@@ -27,22 +29,108 @@ const PdfCropper = () => {
   const [isCropping, setIsCropping] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const [previewUrls, setPreviewUrls] = useState([]);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
-  const [originalPageSize, setOriginalPageSize] = useState({ width: 0, height: 0 });
   const [pagePreviews, setPagePreviews] = useState([]);
   const [showInfoPanel, setShowInfoPanel] = useState(true);
   const [showThumbnails, setShowThumbnails] = useState(true);
   const [selectionOpacity, setSelectionOpacity] = useState(0.25);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadSpeed, setUploadSpeed] = useState(null);
-  const [downloadUrls, setDownloadUrls] = useState([]);
-  const [downloadFilenames, setDownloadFilenames] = useState([]);
+  const [processedFiles, setProcessedFiles] = useState([]);
+  const [totalSizeError, setTotalSizeError] = useState("");
+  const [currentJobId, setCurrentJobId] = useState(null);
   
   const { user, isLoaded } = useUser();
   const { openSignIn } = useClerk();
 
   const currentPdfDoc = pdfDocs[currentPdfIndex];
+
+  // Debug logger for processedFiles
+  useEffect(() => {
+    console.log("ProcessedFiles state updated:", processedFiles);
+    console.log("ProcessedFiles count:", processedFiles.length);
+    if (processedFiles.length > 0) {
+      console.log("First file URL:", processedFiles[0].url);
+    }
+  }, [processedFiles]);
+
+  // Socket connection
+  useEffect(() => {
+    if (!import.meta.env.VITE_API_URL) return;
+
+    socketRef.current = io(import.meta.env.VITE_API_URL, {
+      transports: ["websocket"],
+      withCredentials: true,
+    });
+
+    socketRef.current.on("connect", () => {
+      console.log("Socket connected in PdfCropper");
+      if (user?.id) {
+        socketRef.current.emit("register", user.id);
+      }
+    });
+
+    socketRef.current.on("history:update", (job) => {
+      console.log("PdfCropper received socket update:", job);
+      console.log("Job status:", job.status);
+      console.log("Current job ID:", currentJobId);
+      console.log("Job has outputs:", !!job.outputs);
+      console.log("Outputs length:", job.outputs?.length);
+      
+      // Only process if this is the current job
+      if (currentJobId && job.jobId === currentJobId) {
+        if (job.status === "completed" && job.outputs && job.outputs.length > 0) {
+          console.log("Setting processedFiles from socket for job:", job.jobId);
+          console.log("Outputs from socket:", job.outputs);
+          setProcessedFiles(job.outputs);
+          setSuccess(`Done! ${job.outputs.length} file(s) ready to download.`);
+          setIsCropping(false);
+          setUploadProgress(0);
+          setUploadSpeed(null);
+          setCurrentJobId(null);
+          setTimeout(() => setSuccess(null), 5000);
+        } else if (job.status === "error") {
+          console.error("Socket error for job:", job.error);
+          setError(job.error || "Processing failed");
+          setIsCropping(false);
+          setUploadProgress(0);
+          setUploadSpeed(null);
+          setCurrentJobId(null);
+        } else {
+          console.log("Job status update:", job.status, job.message);
+          // Update progress message based on status
+          if (job.status === "processing") {
+            setSuccess("Processing your PDFs...");
+          } else if (job.status === "uploading") {
+            setSuccess("Uploading results to cloud...");
+          }
+        }
+      } else {
+        console.log("Socket update ignored - not for current job or no current job");
+      }
+    });
+
+    socketRef.current.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
+    });
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
+  }, [user, currentJobId]);
+
+  // Check total size of files
+  const getTotalSize = (fileList) => {
+    return fileList.reduce((total, file) => total + file.size, 0);
+  };
+
+  const isTotalSizeValid = (fileList) => {
+    const totalSize = getTotalSize(fileList);
+    const maxSize = 30 * 1024 * 1024;
+    return totalSize <= maxSize;
+  };
 
   useEffect(() => {
     const updateContainerSize = () => {
@@ -68,8 +156,8 @@ const PdfCropper = () => {
       setPagePreviews([]);
       setUploadProgress(0);
       setUploadSpeed(null);
-      setDownloadUrls([]);
-      setDownloadFilenames([]);
+      setProcessedFiles([]);
+      setCurrentJobId(null);
       return;
     }
     
@@ -142,10 +230,7 @@ const PdfCropper = () => {
         const page = await currentPdfDoc.getPage(pageNum);
         const viewport = page.getViewport({ scale: 1.0 });
         
-        setOriginalPageSize({ width: viewport.width, height: viewport.height });
-        
-        const calculatedScale = 1.0;
-        const scaledViewport = page.getViewport({ scale: calculatedScale });
+        const scaledViewport = page.getViewport({ scale: 1.0 });
         
         const canvas = canvasRef.current;
         const ctx = canvas.getContext("2d");
@@ -153,7 +238,6 @@ const PdfCropper = () => {
         canvas.height = scaledViewport.height;
         canvas.width = scaledViewport.width;
         
-        // FIXED: changed canvas.width to canvas.height in clearRect
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
         await page.render({ 
@@ -184,41 +268,39 @@ const PdfCropper = () => {
       return;
     }
     if (!files || files.length === 0 || !cropBox || !currentPdfDoc) return;
+    
+    if (!isTotalSizeValid(files)) {
+      setTotalSizeError(`Total file size exceeds 30MB limit. Please remove some files.`);
+      return;
+    }
 
     setIsCropping(true);
     setError(null);
-    setSuccess(null);
+    setTotalSizeError("");
+    setSuccess("Starting crop process...");
     setUploadProgress(0);
     setUploadSpeed(null);
-    setDownloadUrls([]);
-    setDownloadFilenames([]);
+    setProcessedFiles([]);
+    setCurrentJobId(null);
 
     try {
       const canvas = canvasRef.current;
       const canvasWidth = canvas.width;
       const canvasHeight = canvas.height;
 
-      // ✅ REPLACED pixel scaling with normalized (0-1) coordinates
-
       let normalizedCoords = {
-      x: cropBox.x / canvasWidth,
+        x: cropBox.x / canvasWidth,
+        y: 1 - ((cropBox.y + cropBox.height) / canvasHeight),
+        width: cropBox.width / canvasWidth,
+        height: cropBox.height / canvasHeight,
+        page: pageNum
+      };
 
-  // 🔥 FIXED Y FLIP
-      y: 1 - ((cropBox.y + cropBox.height) / canvasHeight),
-
-      width: cropBox.width / canvasWidth,
-      height: cropBox.height / canvasHeight,
-
-      page: pageNum
-};
-
-      // Ensure normalized coordinates are within valid range [0,1]
       normalizedCoords.x = Math.max(0, Math.min(1, normalizedCoords.x));
       normalizedCoords.y = Math.max(0, Math.min(1, normalizedCoords.y));
       normalizedCoords.width = Math.max(0.01, Math.min(1 - normalizedCoords.x, normalizedCoords.width));
       normalizedCoords.height = Math.max(0.01, Math.min(1 - normalizedCoords.y, normalizedCoords.height));
 
-      // ✅ Updated payload - removed canvasWidth/canvasHeight fields
       const cropData = {
         crop: normalizedCoords,
         applyTo: "all"
@@ -252,91 +334,125 @@ const PdfCropper = () => {
         }
       );
 
-      if (res.data.success && res.data.outputs && res.data.outputs.length > 0) {
-        const outputs = res.data.outputs;
-        const urls = outputs.map(output => `${import.meta.env.VITE_API_URL}${output.url}`);
-        const filenames = outputs.map(output => output.name);
+      console.log("API Response:", res.data);
+      
+      // Store job ID for socket tracking
+      if (res.data.jobId) {
+        setCurrentJobId(res.data.jobId);
+        console.log("Setting current job ID:", res.data.jobId);
+      }
+      
+      // Get outputs directly from API response
+      const outputs = res.data.outputs || [];
+      
+      if (outputs && outputs.length > 0) {
+        console.log("Outputs found in API response:", outputs.length);
+        console.log("First output URL:", outputs[0].url);
         
-        setDownloadUrls(urls);
-        setDownloadFilenames(filenames);
-        setSuccess(`Successfully cropped ${files.length} PDF file(s)! The same crop area has been applied to all pages.`);
+        // Set processed files immediately from API response
+        setProcessedFiles(outputs);
+        setSuccess(`Done! ${outputs.length} file(s) ready to download.`);
+        setIsCropping(false);
+        setUploadProgress(0);
+        setUploadSpeed(null);
+        setCurrentJobId(null);
         
-        const previewPromises = urls.map(async (url, index) => {
-          try {
-            const previewResponse = await axios.get(url, { responseType: 'blob' });
-            const blob = new Blob([previewResponse.data], { type: 'application/pdf' });
-            return URL.createObjectURL(blob);
-          } catch (previewError) {
-            console.warn(`Could not create preview for file ${index}:`, previewError);
-            return null;
-          }
-        });
-        
-        const previews = await Promise.all(previewPromises);
-        setPreviewUrls(previews.filter(url => url !== null));
+        // Auto clear success message after 5 seconds
+        setTimeout(() => setSuccess(null), 5000);
       } else {
-        throw new Error("No output files generated");
+        console.log("No outputs in API response, waiting for socket update for job:", res.data.jobId);
+        setSuccess("Processing completed! Waiting for download links...");
+        // Don't set isCropping to false yet - wait for socket
+        // Socket will handle setting isCropping to false when completed
       }
       
     } catch (err) {
-      setError(err.response?.data?.error || err.message || "Crop operation failed. Please try again.");
       console.error("Crop error:", err);
+      const errorMsg = err.response?.data?.error || err.message || "Crop operation failed. Please try again.";
+      setError(errorMsg);
+      setIsCropping(false);
+      setUploadProgress(0);
+      setUploadSpeed(null);
+      setCurrentJobId(null);
     }
-    setIsCropping(false);
-    setUploadProgress(0);
-    setUploadSpeed(null);
   };
 
-  const handleDownload = (index = null) => {
-    if (index !== null && downloadUrls[index]) {
-      window.open(downloadUrls[index], '_blank');
-    } else if (downloadUrls.length > 0) {
-      downloadUrls.forEach((url, idx) => {
-        window.open(url, '_blank');
-      });
-    } else if (previewUrls.length > 0) {
-      previewUrls.forEach((url, idx) => {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = downloadFilenames[idx] || `cropped_${files[idx]?.name}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      });
+  const handleDownload = async (fileUrl, fileName) => {
+    try {
+      console.log("Downloading:", fileUrl, fileName);
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName || 'download.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed:', error);
+      window.open(fileUrl, '_blank');
     }
+  };
+
+  const handleDownloadAll = () => {
+    processedFiles.forEach((file) => {
+      handleDownload(file.url, file.name);
+    });
   };
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    setTotalSizeError("");
     setUploadProgress(0);
     setUploadSpeed(null);
-    setDownloadUrls([]);
-    setDownloadFilenames([]);
+    setProcessedFiles([]);
+    setCurrentJobId(null);
     
     const droppedFiles = Array.from(e.dataTransfer.files).filter(
       file => file.type === "application/pdf"
     );
     
-    if (droppedFiles.length > 0) {
-      setFiles(droppedFiles);
-    } else {
+    if (droppedFiles.length === 0) {
       setError("Please upload valid PDF files.");
+      return;
     }
-  }, []);
+    
+    const currentFiles = [...files, ...droppedFiles];
+    
+    if (!isTotalSizeValid(currentFiles)) {
+      setTotalSizeError(`Total file size exceeds 30MB limit. Current total: ${(getTotalSize(currentFiles) / (1024 * 1024)).toFixed(2)}MB`);
+      setError("");
+      return;
+    }
+    
+    setTotalSizeError("");
+    setFiles(currentFiles);
+  }, [files]);
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files).filter(
       file => file.type === "application/pdf"
     );
     
-    if (selectedFiles.length > 0) {
-      setFiles(selectedFiles);
-    } else {
+    if (selectedFiles.length === 0) {
       setError("Please select valid PDF files.");
+      return;
     }
     
+    const currentFiles = [...files, ...selectedFiles];
+    
+    if (!isTotalSizeValid(currentFiles)) {
+      setTotalSizeError(`Total file size exceeds 30MB limit. Current total: ${(getTotalSize(currentFiles) / (1024 * 1024)).toFixed(2)}MB`);
+      setError("");
+      return;
+    }
+    
+    setTotalSizeError("");
+    setFiles(currentFiles);
     e.target.value = null;
   };
 
@@ -345,11 +461,20 @@ const PdfCropper = () => {
       setFiles([]);
       setPdfDocs([]);
       setCurrentPdfIndex(0);
+      setTotalSizeError("");
+      setProcessedFiles([]);
+      setCurrentJobId(null);
     } else {
       const newFiles = files.filter((_, i) => i !== index);
       const newPdfDocs = pdfDocs.filter((_, i) => i !== index);
       setFiles(newFiles);
       setPdfDocs(newPdfDocs);
+      
+      if (!isTotalSizeValid(newFiles) && newFiles.length > 0) {
+        setTotalSizeError(`Total file size exceeds 30MB limit. Current total: ${(getTotalSize(newFiles) / (1024 * 1024)).toFixed(2)}MB`);
+      } else {
+        setTotalSizeError("");
+      }
       
       if (currentPdfIndex >= newFiles.length) {
         setCurrentPdfIndex(Math.max(0, newFiles.length - 1));
@@ -359,14 +484,11 @@ const PdfCropper = () => {
     setCropBox(null);
     setError(null);
     setSuccess(null);
-    setPreviewUrls([]);
     setPageNum(1);
     setTotalPages(0);
     setPagePreviews([]);
     setUploadProgress(0);
     setUploadSpeed(null);
-    setDownloadUrls([]);
-    setDownloadFilenames([]);
   };
 
   const addMoreFiles = (e) => {
@@ -374,10 +496,17 @@ const PdfCropper = () => {
       file => file.type === "application/pdf"
     );
     
-    if (selectedFiles.length > 0) {
-      setFiles(prev => [...prev, ...selectedFiles]);
+    if (selectedFiles.length === 0) return;
+    
+    const currentFiles = [...files, ...selectedFiles];
+    
+    if (!isTotalSizeValid(currentFiles)) {
+      setTotalSizeError(`Total file size exceeds 30MB limit. Current total: ${(getTotalSize(currentFiles) / (1024 * 1024)).toFixed(2)}MB`);
+      setError("");
+      return;
     }
     
+    setFiles(currentFiles);
     e.target.value = null;
   };
 
@@ -413,7 +542,19 @@ const PdfCropper = () => {
     setCurrentPdfIndex(index);
   };
 
-  // Updated to show normalized coordinates (0-1 range) in info panel
+  const handleReset = () => {
+    setFiles([]);
+    setProcessedFiles([]);
+    setError(null);
+    setTotalSizeError("");
+    setUploadProgress(0);
+    setUploadSpeed(null);
+    setSuccess(null);
+    setCropBox(null);
+    setCurrentJobId(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const calculateNormalizedCoordinates = () => {
     if (!cropBox || !canvasRef.current) return null;
     
@@ -437,8 +578,14 @@ const PdfCropper = () => {
     return name;
   };
 
+  const totalSize = getTotalSize(files);
+  const maxSizeMB = 30;
+  const currentTotalMB = (totalSize / (1024 * 1024)).toFixed(2);
+  const isOverLimit = files.length > 0 && !isTotalSizeValid(files);
+  const hasProcessedFiles = processedFiles.length > 0;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 py-2 px-4 ">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 py-2 px-4">
       <Helmet>
         <title>PDF Cropper Pro | Precision Crop Tool</title>
         <meta name="description" content="Crop PDFs online for free with precise controls. Upload multiple files, crop once, apply to all." />
@@ -452,9 +599,7 @@ const PdfCropper = () => {
         className="max-w-4xl mx-auto"
         ref={containerRef}
       >
-        {/* Hero Card */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 overflow-hidden">
-          {/* Modern Header */}
           <div className="relative px-6 py-8 bg-gradient-to-r from-indigo-700 via-indigo-600 to-purple-700 text-white overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-48 bg-white/10 rounded-full -mr-32 -mt-16" />
             <div className="absolute bottom-0 left-0 w-48 h-40 bg-purple-500/20 rounded-full -ml-24 -mb-12" />
@@ -490,7 +635,6 @@ const PdfCropper = () => {
           </div>
 
           <div className="p-6 md:p-8">
-            {/* Upload Zone - Redesigned */}
             <div
               className={`relative transition-all duration-300 rounded-2xl border-2 border-dashed ${
                 files.length > 0 
@@ -514,7 +658,7 @@ const PdfCropper = () => {
                     <FiFolder className="text-lg" />
                     Browse files
                   </button>
-                  <p className="text-xs text-gray-400 mt-4">Supports multiple PDFs, up to 50MB each</p>
+                  <p className="text-xs text-gray-400 mt-4">Supports multiple PDFs, max 30MB total</p>
                 </div>
               ) : (
                 <>
@@ -528,12 +672,15 @@ const PdfCropper = () => {
                     </div>
                   ) : (
                     <div className="p-5 space-y-5">
-                      {/* File List - Card Style */}
+                      {/* File Queue Section */}
                       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                         <div className="flex flex-wrap justify-between items-center gap-3 mb-3">
                           <h3 className="font-semibold text-gray-800 flex items-center gap-2">
                             <FiFileText className="text-indigo-500" />
                             <span>Queue · {files.length} PDF(s)</span>
+                            <span className="text-xs text-gray-500 ml-2">
+                              Total: {currentTotalMB}MB / {maxSizeMB}MB
+                            </span>
                           </h3>
                           <div className="flex gap-2">
                             <button
@@ -571,9 +718,6 @@ const PdfCropper = () => {
                                 <span className={`truncate text-sm ${currentPdfIndex === index ? "font-medium text-indigo-800" : "text-gray-700"}`}>
                                   {formatFileName(file.name)}
                                 </span>
-                                {downloadUrls[index] && (
-                                  <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">✓ done</span>
-                                )}
                               </div>
                               <button
                                 onClick={(e) => { e.stopPropagation(); removeFile(index); }}
@@ -584,9 +728,17 @@ const PdfCropper = () => {
                             </motion.div>
                           ))}
                         </div>
+                        {isOverLimit && (
+                          <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+                            <p className="text-xs text-red-600 flex items-center gap-1">
+                              <FiAlertCircle />
+                              Total size exceeds {maxSizeMB}MB limit. Please remove some files.
+                            </p>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Multi-file navigation bar */}
+                      {/* PDF Navigation */}
                       {files.length > 1 && (
                         <div className="flex items-center justify-between gap-4 p-2 bg-white rounded-xl shadow-sm border border-gray-100">
                           <button
@@ -612,7 +764,7 @@ const PdfCropper = () => {
                         </div>
                       )}
 
-                      {/* Crop progress */}
+                      {/* Progress Bar */}
                       {isCropping && uploadProgress > 0 && (
                         <motion.div className="bg-white rounded-xl p-4 shadow-sm border border-indigo-100">
                           <div className="flex justify-between text-sm text-gray-600 mb-2">
@@ -626,7 +778,15 @@ const PdfCropper = () => {
                         </motion.div>
                       )}
 
-                      {/* Page & Zoom controls */}
+                      {/* Processing Status Message */}
+                      {isCropping && uploadProgress === 0 && (
+                        <motion.div className="bg-blue-50 rounded-xl p-4 text-center border border-blue-200">
+                          <FiLoader className="animate-spin text-blue-600 mx-auto mb-2" size={24} />
+                          <p className="text-sm text-blue-700">Processing your PDFs. This may take a few moments...</p>
+                        </motion.div>
+                      )}
+
+                      {/* Page Controls */}
                       <div className="flex flex-wrap items-center justify-between gap-3 bg-white rounded-xl p-3 shadow-sm border border-gray-100">
                         <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1">
                           <button onClick={goToPreviousPage} disabled={pageNum <= 1} className="p-2 rounded-md hover:bg-white disabled:opacity-40 transition">
@@ -655,7 +815,7 @@ const PdfCropper = () => {
                         </div>
                       </div>
 
-                      {/* Thumbnails */}
+                      {/* Page Thumbnails */}
                       {showThumbnails && pagePreviews.length > 0 && (
                         <div className="overflow-x-auto pb-2">
                           <div className="flex gap-3 p-2 bg-gray-50/80 rounded-xl">
@@ -675,7 +835,7 @@ const PdfCropper = () => {
                         </div>
                       )}
 
-                      {/* Canvas + Crop area (preserved logic) */}
+                      {/* Canvas with Crop Box */}
                       <div className="relative bg-white rounded-xl shadow-md border border-gray-200 p-3 flex justify-center overflow-auto">
                         <div className="relative inline-block">
                           <canvas ref={canvasRef} className="rounded-lg shadow-sm border border-gray-300" />
@@ -712,11 +872,11 @@ const PdfCropper = () => {
                         </div>
                       </div>
 
-                      {/* Action row */}
+                      {/* Action Buttons */}
                       <div className="flex flex-wrap gap-4 justify-center pt-2">
                         <button 
                           onClick={handleCrop} 
-                          disabled={isCropping || !cropBox}
+                          disabled={isCropping || !cropBox || isOverLimit}
                           className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md font-medium"
                         >
                           {isCropping ? (
@@ -726,20 +886,67 @@ const PdfCropper = () => {
                           )}
                         </button>
                         
-                        {downloadUrls.length > 0 && (
-                          <div className="flex flex-wrap gap-2">
-                            <button 
-                              onClick={() => handleDownload()}
-                              className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl flex items-center gap-2 transition shadow-md"
-                            >
-                              <FiDownload /> Download All ({downloadUrls.length})
-                            </button>
-                          </div>
+                        {hasProcessedFiles && (
+                          <button 
+                            onClick={handleDownloadAll}
+                            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl flex items-center gap-2 transition shadow-md"
+                          >
+                            <FiDownload /> Download All ({processedFiles.length})
+                          </button>
                         )}
                       </div>
 
-                      {/* Info panel coordinates - Updated to show normalized (0-1) values */}
-                      {showInfoPanel && cropBox && normalizedCoordsDisplay && (
+                      {/* RESULTS SECTION - Individual Download Buttons */}
+                      {hasProcessedFiles && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="bg-white rounded-xl border border-green-200 overflow-hidden shadow-sm mt-4"
+                        >
+                          <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-4 py-3 border-b border-green-200">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                                <FiCheck className="text-white" />
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-bold text-gray-900">Processing Complete!</h3>
+                                <p className="text-xs text-green-700">{processedFiles.length} file(s) ready to download</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="p-4">
+                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                              {processedFiles.map((file, idx) => (
+                                <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <FiFile className="text-green-600 flex-shrink-0" />
+                                    <p className="text-xs text-gray-700 truncate flex-1">
+                                      {file.name || `cropped_file_${idx + 1}.pdf`}
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={() => handleDownload(file.url, file.name)}
+                                    className="px-2 py-1 bg-white border border-gray-300 rounded text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-1 transition"
+                                  >
+                                    <FiDownload size={12} />
+                                    Download
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                            <button
+                              onClick={handleReset}
+                              className="mt-4 w-full py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition flex items-center justify-center gap-2"
+                            >
+                              <FiUpload size={14} />
+                              Process More Files
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+
+                      {/* Info Panel */}
+                      {showInfoPanel && cropBox && normalizedCoordsDisplay && !hasProcessedFiles && (
                         <motion.div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
                           <div className="flex items-center gap-2 text-indigo-700 mb-3">
                             <FiCornerUpRight />
@@ -762,7 +969,7 @@ const PdfCropper = () => {
               )}
             </div>
 
-            {/* Toast Messages */}
+            {/* Error and Success Messages */}
             <AnimatePresence>
               {error && (
                 <motion.div className="mt-5 p-4 bg-red-50 border-l-4 border-red-500 rounded-xl text-red-700 flex gap-3 shadow-sm">
@@ -772,7 +979,15 @@ const PdfCropper = () => {
               )}
             </AnimatePresence>
             <AnimatePresence>
-              {success && (
+              {totalSizeError && !isCropping && (
+                <motion.div className="mt-5 p-4 bg-red-50 border-l-4 border-red-500 rounded-xl text-red-700 flex gap-3 shadow-sm">
+                  <FiAlertCircle className="text-red-500 mt-0.5" />
+                  <p className="text-sm">{totalSizeError}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <AnimatePresence>
+              {success && !hasProcessedFiles && (
                 <motion.div className="mt-5 p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-xl text-emerald-700 flex gap-3 shadow-sm">
                   <FiCheck className="text-emerald-500 mt-0.5" />
                   <p className="text-sm">{success}</p>
@@ -781,10 +996,10 @@ const PdfCropper = () => {
             </AnimatePresence>
           </div>
 
-          {/* Footer instructions */}
+          {/* Steps Footer */}
           <div className="px-6 py-5 bg-gray-50/80 border-t border-gray-100">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs md:text-sm">
-              <div className="flex items-center gap-2"><div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">1</div> Upload PDFs</div>
+              <div className="flex items-center gap-2"><div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">1</div> Upload PDFs (max 30MB total)</div>
               <div className="flex items-center gap-2"><div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">2</div> Adjust crop box</div>
               <div className="flex items-center gap-2"><div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">3</div> Crop all files</div>
               <div className="flex items-center gap-2"><div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">4</div> Download instantly</div>

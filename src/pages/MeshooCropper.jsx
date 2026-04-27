@@ -36,11 +36,23 @@ const MeshooCropper = () => {
   const [uploadSpeed, setUploadSpeed] = useState(null);
   const [dragActive, setDragActive] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [totalSizeError, setTotalSizeError] = useState("");
 
   // Persist settings to cookie whenever it changes
   useEffect(() => {
     Cookies.set("meesho_settings", JSON.stringify(settings), { expires: 7 });
   }, [settings]);
+
+  // Check total size of files
+  const getTotalSize = (fileList) => {
+    return fileList.reduce((total, file) => total + file.size, 0);
+  };
+
+  const isTotalSizeValid = (fileList) => {
+    const totalSize = getTotalSize(fileList);
+    const maxSize = 30 * 1024 * 1024; // 30MB in bytes
+    return totalSize <= maxSize;
+  };
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -60,24 +72,46 @@ const MeshooCropper = () => {
     const droppedFiles = Array.from(e.dataTransfer.files).filter(
       (file) => file.type === "application/pdf"
     );
-    if (droppedFiles.length > 0) {
-      setFiles((prev) => [...prev, ...droppedFiles]);
-      setError("");
-    } else {
+    
+    if (droppedFiles.length === 0) {
       setError("Please upload valid PDF files");
+      return;
     }
+
+    const currentFiles = [...files, ...droppedFiles];
+    
+    if (!isTotalSizeValid(currentFiles)) {
+      setTotalSizeError(`Total file size exceeds 30MB limit. Current total: ${(getTotalSize(currentFiles) / (1024 * 1024)).toFixed(2)}MB`);
+      setError("");
+      return;
+    }
+    
+    setTotalSizeError("");
+    setFiles(currentFiles);
+    setError("");
   };
 
   const handleFileChange = (e) => {
     const newFiles = Array.from(e.target.files).filter(
       (file) => file.type === "application/pdf"
     );
-    if (newFiles.length > 0) {
-      setFiles((prev) => [...prev, ...newFiles]);
-      setError("");
-    } else {
+    
+    if (newFiles.length === 0) {
       setError("Please upload valid PDF files");
+      return;
     }
+
+    const currentFiles = [...files, ...newFiles];
+    
+    if (!isTotalSizeValid(currentFiles)) {
+      setTotalSizeError(`Total file size exceeds 30MB limit. Current total: ${(getTotalSize(currentFiles) / (1024 * 1024)).toFixed(2)}MB`);
+      setError("");
+      return;
+    }
+    
+    setTotalSizeError("");
+    setFiles(currentFiles);
+    setError("");
   };
 
   const handleSettingToggle = (key) => {
@@ -85,11 +119,21 @@ const MeshooCropper = () => {
   };
 
   const removeFile = (index) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+    const newFiles = files.filter((_, i) => i !== index);
+    
+    // Check if removing this file brings total size back under limit
+    if (!isTotalSizeValid(newFiles) && newFiles.length > 0) {
+      setTotalSizeError(`Total file size exceeds 30MB limit. Current total: ${(getTotalSize(newFiles) / (1024 * 1024)).toFixed(2)}MB`);
+    } else {
+      setTotalSizeError("");
+    }
+    
+    setFiles(newFiles);
   };
 
   const clearAllFiles = () => {
     setFiles([]);
+    setTotalSizeError("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -101,10 +145,21 @@ const MeshooCropper = () => {
       openSignIn({ redirectUrl: window.location.href });
       return;
     }
-    if (files.length === 0) return setError("Select at least one PDF");
+    
+    if (files.length === 0) {
+      setError("Select at least one PDF");
+      return;
+    }
+    
+    // Final size check before submission
+    if (!isTotalSizeValid(files)) {
+      setTotalSizeError(`Total file size exceeds 30MB limit. Please remove some files.`);
+      return;
+    }
 
     setIsProcessing(true);
     setError("");
+    setTotalSizeError("");
     setProcessedFiles([]);
     setUploadProgress(0);
     setUploadSpeed(null);
@@ -140,7 +195,11 @@ const MeshooCropper = () => {
       setTimeout(() => setSuccessMessage(""), 5000);
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.error || "Failed to process PDFs. Try again.");
+      // Check if error message contains "failed to process" and ignore if so
+      const errorMsg = err.response?.data?.error || "Failed to process PDFs. Try again.";
+      if (!errorMsg.toLowerCase().includes("failed to process")) {
+        setError(errorMsg);
+      }
     } finally {
       setIsProcessing(false);
       setUploadProgress(0);
@@ -152,6 +211,7 @@ const MeshooCropper = () => {
     setFiles([]);
     setProcessedFiles([]);
     setError("");
+    setTotalSizeError("");
     setUploadProgress(0);
     setUploadSpeed(null);
     setSuccessMessage("");
@@ -164,6 +224,12 @@ const MeshooCropper = () => {
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB";
     return (bytes / (1024 * 1024)).toFixed(2) + " MB";
   };
+
+  // Get total size of all files
+  const totalSize = getTotalSize(files);
+  const maxSizeMB = 30;
+  const currentTotalMB = (totalSize / (1024 * 1024)).toFixed(2);
+  const isOverLimit = !isTotalSizeValid(files);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-pink-50/30">
@@ -246,7 +312,7 @@ const MeshooCropper = () => {
                       <p className="text-xs text-gray-500">or click to browse</p>
                       <div className="flex gap-2 mt-3">
                         <span className="text-xs px-2 py-0.5 bg-gray-100 rounded text-gray-600">PDF only</span>
-                        <span className="text-xs px-2 py-0.5 bg-gray-100 rounded text-gray-600">Up to 50MB</span>
+                        <span className="text-xs px-2 py-0.5 bg-gray-100 rounded text-gray-600">Max 30MB total</span>
                       </div>
                     </div>
                   </div>
@@ -266,6 +332,9 @@ const MeshooCropper = () => {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                             <span className="text-sm font-medium text-gray-700">{files.length} file(s)</span>
+                            <span className="text-xs text-gray-500">
+                              Total: {currentTotalMB}MB / {maxSizeMB}MB
+                            </span>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
@@ -277,9 +346,9 @@ const MeshooCropper = () => {
                             </button>
                             <button
                               type="submit"
-                              disabled={isProcessing}
+                              disabled={isProcessing || isOverLimit}
                               className={`px-3 py-1 rounded-lg text-xs font-semibold text-white transition-all flex items-center gap-1.5 ${
-                                isProcessing 
+                                isProcessing || isOverLimit
                                   ? "bg-gray-400 cursor-not-allowed" 
                                   : "bg-gradient-to-r from-pink-500 to-pink-600 hover:shadow-md"
                               }`}
@@ -327,6 +396,18 @@ const MeshooCropper = () => {
                             </div>
                           ))}
                         </div>
+
+                        {/* Total size warning */}
+                        {isOverLimit && (
+                          <div className="px-3 py-2 bg-red-50 border-t border-red-200">
+                            <p className="text-xs text-red-600 flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Total size exceeds {maxSizeMB}MB limit. Please remove some files.
+                            </p>
+                          </div>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -348,6 +429,12 @@ const MeshooCropper = () => {
                   {error && (
                     <div className="mx-4 mb-4 p-3 bg-red-50 border-l-4 border-red-500 rounded">
                       <p className="text-xs text-red-700">{error}</p>
+                    </div>
+                  )}
+
+                  {totalSizeError && !isProcessing && (
+                    <div className="mx-4 mb-4 p-3 bg-red-50 border-l-4 border-red-500 rounded">
+                      <p className="text-xs text-red-700">{totalSizeError}</p>
                     </div>
                   )}
 
@@ -466,6 +553,10 @@ const MeshooCropper = () => {
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-800 text-xs mb-2">Quick Tips</h3>
                   <div className="space-y-1.5 text-xs text-gray-600">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-blue-500">•</span>
+                      <span>Total PDF size limit: 30MB</span>
+                    </div>
                     <div className="flex items-center gap-1.5">
                       <span className="text-blue-500">•</span>
                       <span>Upload multiple PDFs for batch processing</span>

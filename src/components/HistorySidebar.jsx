@@ -60,13 +60,23 @@ const HistorySidebar = () => {
     });
     
     socket.on("history:update", (newJob) => {
+      console.log("Received real-time update:", newJob);
       setHistory((prev) => {
-        if (prev.some(job => job.jobId === newJob.jobId)) return prev;
+        // Check if job already exists
+        if (prev.some(job => job.jobId === newJob.jobId)) {
+          // Update existing job
+          return prev.map(job => 
+            job.jobId === newJob.jobId ? newJob : job
+          );
+        }
+        // Add new job at the beginning
         return [newJob, ...prev];
       });
     });
 
-    if (socket.connected) socket.emit("register", user.id);
+    if (socket.connected) {
+      socket.emit("register", user.id);
+    }
 
     return () => {
       socket.off("connect");
@@ -76,7 +86,16 @@ const HistorySidebar = () => {
 
   // Initial fetch
   useEffect(() => {
-    if (user && isLoaded) fetchHistory();
+    if (user && isLoaded) {
+      fetchHistory();
+      
+      // Optional: Poll for updates every 30 seconds as fallback
+      const interval = setInterval(() => {
+        fetchHistory(true);
+      }, 30000);
+      
+      return () => clearInterval(interval);
+    }
   }, [user, isLoaded]);
 
   const formatDate = (date) => {
@@ -96,6 +115,7 @@ const HistorySidebar = () => {
       FlipkartCropper: "🛍️",
       MeshooCropper: "🏪",
       JioMartCropper: "📱",
+      FrontendCropper: "✂️",
       SelectionCropper: "✂️"
     };
     return icons[toolName] || "🛠️";
@@ -170,7 +190,7 @@ const HistorySidebar = () => {
                 <div className="space-y-3">
                   {history.map((job, index) => (
                     <div
-                      key={job.jobId || index}
+                      key={job.jobId || job._id || index}
                       className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
                     >
                       {/* Job Header */}

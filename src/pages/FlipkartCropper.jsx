@@ -5,12 +5,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Helmet } from "react-helmet";
 import { useUser, useClerk } from "@clerk/clerk-react";
 import Cookies from "js-cookie";
+import { io } from "socket.io-client";
 
 const FlipkartCropper = () => {
   const fileInputRef = useRef(null);
   const { user, isLoaded } = useUser();
   const { openSignIn } = useClerk();
   const navigate = useNavigate();
+  const socket = useRef(null);
 
   // Load settings from cookie if exists
   const savedSettings = Cookies.get("flipkart_settings");
@@ -35,11 +37,118 @@ const FlipkartCropper = () => {
   const [uploadSpeed, setUploadSpeed] = useState(null);
   const [dragActive, setDragActive] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [processingStatus, setProcessingStatus] = useState("");
+  const [totalSizeError, setTotalSizeError] = useState("");
+
+  // Socket connection
+  useEffect(() => {
+    if (!import.meta.env.VITE_API_URL) return;
+
+    socket.current = io(import.meta.env.VITE_API_URL, {
+      transports: ["websocket"],
+      withCredentials: true,
+    });
+
+    socket.current.on("connect", () => {
+      console.log("Socket connected");
+      if (user?.id) {
+        socket.current.emit("register", user.id);
+      }
+    });
+
+    socket.current.on("history:update", (job) => {
+      handleSocketUpdate(job);
+    });
+
+    socket.current.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
+    });
+
+    return () => {
+      if (socket.current) {
+        socket.current.disconnect();
+      }
+    };
+  }, [user]);
+
+  // Heartbeat to keep connection alive
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (socket.current && socket.current.connected) {
+        socket.current.emit("ping");
+      }
+    }, 20000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Handle real-time socket updates
+  const handleSocketUpdate = (job) => {
+    console.log("SOCKET UPDATE:", job);
+
+    switch (job.status) {
+      case "started":
+        setProcessingStatus("🚀 Job started...");
+        setSuccessMessage("🚀 Job started...");
+        break;
+
+      case "processing":
+        setProcessingStatus("⚙️ Processing PDFs...");
+        setSuccessMessage("⚙️ Processing PDFs...");
+        break;
+
+      case "uploading":
+        setProcessingStatus("☁️ Uploading to storage...");
+        setSuccessMessage("☁️ Uploading to storage...");
+        break;
+
+      case "completed":
+        // ✅ CORRECT: Use outputs (not output)
+        const outputs = job.outputs || [];
+        setProcessedFiles(outputs);
+        setProcessingStatus("✅ Completed!");
+        setSuccessMessage(`✅ Successfully processed ${outputs.length} file(s)!`);
+        setIsProcessing(false);
+        setUploadProgress(0);
+        setUploadSpeed(null);
+        setTimeout(() => setSuccessMessage(""), 5000);
+        setTimeout(() => setProcessingStatus(""), 3000);
+        break;
+
+      case "error":
+        // Only show error if it's a genuine processing error, not a "failed to process" generic message
+        if (job.error && !job.error.toLowerCase().includes("failed to process")) {
+          setError(job.error);
+        } else if (job.error && job.error.toLowerCase().includes("failed to process")) {
+          // Silently ignore generic failed to process errors
+          console.log("Ignored generic processing error:", job.error);
+        }
+        setProcessingStatus("");
+        setIsProcessing(false);
+        setUploadProgress(0);
+        setUploadSpeed(null);
+        break;
+
+      default:
+        console.log("Unknown job status:", job.status);
+    }
+  };
 
   // Persist settings to cookie whenever it changes
   useEffect(() => {
     Cookies.set("flipkart_settings", JSON.stringify(settings), { expires: 7 });
   }, [settings]);
+
+  // Check total size of files
+  const getTotalSize = (fileList) => {
+    return fileList.reduce((total, file) => total + file.size, 0);
+  };
+
+  const isTotalSizeValid = (fileList) => {
+    const totalSize = getTotalSize(fileList);
+    const maxSize = 30 * 1024 * 1024; // 30MB in bytes
+    return totalSize <= maxSize;
+  };
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -59,24 +168,46 @@ const FlipkartCropper = () => {
     const droppedFiles = Array.from(e.dataTransfer.files).filter(
       (file) => file.type === "application/pdf"
     );
-    if (droppedFiles.length > 0) {
-      setFiles((prev) => [...prev, ...droppedFiles]);
-      setError("");
-    } else {
+    
+    if (droppedFiles.length === 0) {
       setError("Please upload valid PDF files");
+      return;
     }
+
+    const currentFiles = [...files, ...droppedFiles];
+    
+    if (!isTotalSizeValid(currentFiles)) {
+      setTotalSizeError(`Total file size exceeds 30MB limit. Current total: ${(getTotalSize(currentFiles) / (1024 * 1024)).toFixed(2)}MB`);
+      setError("");
+      return;
+    }
+    
+    setTotalSizeError("");
+    setFiles(currentFiles);
+    setError("");
   };
 
   const handleFileChange = (e) => {
     const newFiles = Array.from(e.target.files).filter(
       (file) => file.type === "application/pdf"
     );
-    if (newFiles.length > 0) {
-      setFiles((prev) => [...prev, ...newFiles]);
-      setError("");
-    } else {
+    
+    if (newFiles.length === 0) {
       setError("Please upload valid PDF files");
+      return;
     }
+
+    const currentFiles = [...files, ...newFiles];
+    
+    if (!isTotalSizeValid(currentFiles)) {
+      setTotalSizeError(`Total file size exceeds 30MB limit. Current total: ${(getTotalSize(currentFiles) / (1024 * 1024)).toFixed(2)}MB`);
+      setError("");
+      return;
+    }
+    
+    setTotalSizeError("");
+    setFiles(currentFiles);
+    setError("");
   };
 
   const handleSettingToggle = (key) => {
@@ -84,11 +215,21 @@ const FlipkartCropper = () => {
   };
 
   const removeFile = (index) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+    const newFiles = files.filter((_, i) => i !== index);
+    
+    // Check if removing this file brings total size back under limit
+    if (!isTotalSizeValid(newFiles) && newFiles.length > 0) {
+      setTotalSizeError(`Total file size exceeds 30MB limit. Current total: ${(getTotalSize(newFiles) / (1024 * 1024)).toFixed(2)}MB`);
+    } else {
+      setTotalSizeError("");
+    }
+    
+    setFiles(newFiles);
   };
 
   const clearAllFiles = () => {
     setFiles([]);
+    setTotalSizeError("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -120,13 +261,25 @@ const FlipkartCropper = () => {
       openSignIn({ redirectUrl: window.location.href });
       return;
     }
-    if (files.length === 0) return setError("Select at least one PDF");
+    
+    if (files.length === 0) {
+      setError("Select at least one PDF");
+      return;
+    }
+    
+    // Final size check before submission
+    if (!isTotalSizeValid(files)) {
+      setTotalSizeError(`Total file size exceeds 30MB limit. Please remove some files.`);
+      return;
+    }
 
     setIsProcessing(true);
     setError("");
+    setTotalSizeError("");
     setProcessedFiles([]);
     setUploadProgress(0);
     setUploadSpeed(null);
+    setProcessingStatus("📤 Starting upload...");
 
     try {
       const formData = new FormData();
@@ -136,11 +289,13 @@ const FlipkartCropper = () => {
 
       const startTime = Date.now();
 
+      // DON'T wait for response - socket will handle updates
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/flipkart`,
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
+          timeout: 0, // No timeout - let socket handle it
           onUploadProgress: (progressEvent) => {
             const percent = Math.round(
               (progressEvent.loaded * 100) / progressEvent.total
@@ -154,16 +309,30 @@ const FlipkartCropper = () => {
         }
       );
 
-      setProcessedFiles(res.data.outputs || []);
-      setSuccessMessage(`Successfully processed ${res.data.outputs?.length || 0} file(s)!`);
-      setTimeout(() => setSuccessMessage(""), 5000);
+      // DEBUG: Log the API response
+      console.log("API RESPONSE:", res.data);
+      
+      // ✅ CORRECT: Check for outputs (not output)
+      const outputs = res.data.outputs || [];
+      
+      if (outputs.length === 0) {
+        console.log("No outputs received", res.data);
+      }
+      
+      // UI will update from socket events
+      // No need to process response here
+      
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.error || "Failed to process PDFs. Try again.");
-    } finally {
+      // Check if error message contains "failed to process" and ignore if so
+      const errorMsg = err.response?.data?.error || "Failed to process PDFs. Try again.";
+      if (!errorMsg.toLowerCase().includes("failed to process")) {
+        setError(errorMsg);
+      }
       setIsProcessing(false);
       setUploadProgress(0);
       setUploadSpeed(null);
+      setProcessingStatus("");
     }
   };
 
@@ -171,9 +340,12 @@ const FlipkartCropper = () => {
     setFiles([]);
     setProcessedFiles([]);
     setError("");
+    setTotalSizeError("");
     setUploadProgress(0);
     setUploadSpeed(null);
     setSuccessMessage("");
+    setProcessingStatus("");
+    setIsProcessing(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -183,6 +355,12 @@ const FlipkartCropper = () => {
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB";
     return (bytes / (1024 * 1024)).toFixed(2) + " MB";
   };
+
+  // Get total size of all files
+  const totalSize = getTotalSize(files);
+  const maxSizeMB = 30;
+  const currentTotalMB = (totalSize / (1024 * 1024)).toFixed(2);
+  const isOverLimit = !isTotalSizeValid(files);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-indigo-50/30">
@@ -265,7 +443,7 @@ const FlipkartCropper = () => {
                       <p className="text-xs text-gray-500">or click to browse</p>
                       <div className="flex gap-2 mt-3">
                         <span className="text-xs px-2 py-0.5 bg-gray-100 rounded text-gray-600">PDF only</span>
-                        <span className="text-xs px-2 py-0.5 bg-gray-100 rounded text-gray-600">Up to 50MB</span>
+                        <span className="text-xs px-2 py-0.5 bg-gray-100 rounded text-gray-600">Max 30MB total</span>
                       </div>
                     </div>
                   </div>
@@ -285,6 +463,9 @@ const FlipkartCropper = () => {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                             <span className="text-sm font-medium text-gray-700">{files.length} file(s)</span>
+                            <span className="text-xs text-gray-500">
+                              Total: {currentTotalMB}MB / {maxSizeMB}MB
+                            </span>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
@@ -296,9 +477,9 @@ const FlipkartCropper = () => {
                             </button>
                             <button
                               type="submit"
-                              disabled={isProcessing}
+                              disabled={isProcessing || isOverLimit}
                               className={`px-3 py-1 rounded-lg text-xs font-semibold text-white transition-all flex items-center gap-1.5 ${
-                                isProcessing 
+                                isProcessing || isOverLimit
                                   ? "bg-gray-400 cursor-not-allowed" 
                                   : "bg-gradient-to-r from-yellow-500 to-orange-500 hover:shadow-md"
                               }`}
@@ -346,21 +527,49 @@ const FlipkartCropper = () => {
                             </div>
                           ))}
                         </div>
+
+                        {/* Total size warning */}
+                        {isOverLimit && (
+                          <div className="px-3 py-2 bg-red-50 border-t border-red-200">
+                            <p className="text-xs text-red-600 flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Total size exceeds {maxSizeMB}MB limit. Please remove some files.
+                            </p>
+                          </div>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>
 
                   {/* Progress & Messages */}
-                  {isProcessing && uploadProgress > 0 && (
-                    <div className="mx-4 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <div className="flex justify-between text-xs text-gray-600 mb-1">
-                        <span>Uploading...</span>
-                        <span>{uploadProgress}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                        <div className="bg-gradient-to-r from-yellow-500 to-orange-500 h-1.5 rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
-                      </div>
-                      {uploadSpeed && <p className="text-xs text-gray-400 mt-1">{uploadSpeed} KB/s</p>}
+                  {isProcessing && (
+                    <div className="mx-4 mb-4 space-y-2">
+                      {uploadProgress > 0 && (
+                        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          <div className="flex justify-between text-xs text-gray-600 mb-1">
+                            <span>Uploading...</span>
+                            <span>{uploadProgress}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                            <div className="bg-gradient-to-r from-yellow-500 to-orange-500 h-1.5 rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
+                          </div>
+                          {uploadSpeed && <p className="text-xs text-gray-400 mt-1">{uploadSpeed} KB/s</p>}
+                        </div>
+                      )}
+                      
+                      {processingStatus && (
+                        <div className="p-3 bg-blue-50 border-l-4 border-blue-500 rounded">
+                          <p className="text-xs text-blue-700 flex items-center gap-2">
+                            <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            {processingStatus}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -370,14 +579,20 @@ const FlipkartCropper = () => {
                     </div>
                   )}
 
-                  {successMessage && (
+                  {totalSizeError && !isProcessing && (
+                    <div className="mx-4 mb-4 p-3 bg-red-50 border-l-4 border-red-500 rounded">
+                      <p className="text-xs text-red-700">{totalSizeError}</p>
+                    </div>
+                  )}
+
+                  {successMessage && !isProcessing && (
                     <div className="mx-4 mb-4 p-3 bg-green-50 border-l-4 border-green-500 rounded">
                       <p className="text-xs text-green-700">{successMessage}</p>
                     </div>
                   )}
 
                   {/* Reset Button */}
-                  {files.length > 0 && (
+                  {files.length > 0 && !isProcessing && (
                     <div className="px-4 pb-4 flex justify-end">
                       <button
                         type="button"
@@ -485,6 +700,10 @@ const FlipkartCropper = () => {
                   <div className="space-y-1.5 text-xs text-gray-600">
                     <div className="flex items-center gap-1.5">
                       <span className="text-blue-500">•</span>
+                      <span>Total PDF size limit: 30MB</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-blue-500">•</span>
                       <span>Upload multiple PDFs for batch processing</span>
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -494,6 +713,10 @@ const FlipkartCropper = () => {
                     <div className="flex items-center gap-1.5">
                       <span className="text-blue-500">•</span>
                       <span>Files auto-deleted after processing</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-blue-500">•</span>
+                      <span>Real-time status updates via WebSocket</span>
                     </div>
                   </div>
                 </div>
