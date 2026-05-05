@@ -7,12 +7,226 @@ import { useUser, useClerk } from "@clerk/clerk-react";
 import Cookies from "js-cookie";
 import { io } from "socket.io-client";
 
+const FLIPKART_JOB_STATE_KEY = "flipkart_cropper_job_state";
+const FLIPKART_TOOL_NAME = "FlipkartCropper";
+
+const emptyJobState = {
+  isProcessing: false,
+  processedFiles: [],
+  error: "",
+  uploadProgress: 0,
+  uploadSpeed: null,
+  successMessage: "",
+  processingStatus: "",
+  totalSizeError: "",
+  currentJobId: null,
+};
+
+const isBrowserReload = () => {
+  if (typeof window === "undefined" || !window.performance) return false;
+  const navigation = performance.getEntriesByType?.("navigation")?.[0];
+  return navigation?.type === "reload";
+};
+
+const loadJobState = () => {
+  if (typeof window === "undefined") return emptyJobState;
+
+  if (isBrowserReload()) {
+    sessionStorage.removeItem(FLIPKART_JOB_STATE_KEY);
+    return emptyJobState;
+  }
+
+  try {
+    const stored = sessionStorage.getItem(FLIPKART_JOB_STATE_KEY);
+    return stored ? { ...emptyJobState, ...JSON.parse(stored) } : emptyJobState;
+  } catch (error) {
+    console.error("Failed to restore Flipkart job state:", error);
+    return emptyJobState;
+  }
+};
+
+let flipkartJobState = loadJobState();
+let flipkartSocket = null;
+let flipkartSocketApiUrl = "";
+let flipkartSocketUserId = "";
+let heartbeatInterval = null;
+const jobStateListeners = new Set();
+
+const persistJobState = () => {
+  if (typeof window === "undefined") return;
+
+  if (
+    !flipkartJobState.isProcessing &&
+    flipkartJobState.processedFiles.length === 0 &&
+    !flipkartJobState.processingStatus &&
+    !flipkartJobState.successMessage &&
+    !flipkartJobState.error &&
+    !flipkartJobState.totalSizeError
+  ) {
+    sessionStorage.removeItem(FLIPKART_JOB_STATE_KEY);
+    return;
+  }
+
+  sessionStorage.setItem(FLIPKART_JOB_STATE_KEY, JSON.stringify(flipkartJobState));
+};
+
+const setFlipkartJobState = (patch) => {
+  flipkartJobState = { ...flipkartJobState, ...patch };
+  persistJobState();
+  jobStateListeners.forEach((listener) => listener(flipkartJobState));
+};
+
+const resetFlipkartJobState = () => {
+  flipkartJobState = { ...emptyJobState };
+  if (typeof window !== "undefined") {
+    sessionStorage.removeItem(FLIPKART_JOB_STATE_KEY);
+  }
+  jobStateListeners.forEach((listener) => listener(flipkartJobState));
+};
+
+const applySocketJobUpdate = (job) => {
+  console.log("SOCKET UPDATE:", job);
+  const { currentJobId, isProcessing } = flipkartJobState;
+
+  if (job.toolName && job.toolName !== FLIPKART_TOOL_NAME) {
+    console.log("Socket update ignored - not a Flipkart job");
+    return;
+  }
+
+  if (!currentJobId && job.toolName !== FLIPKART_TOOL_NAME) {
+    console.log("Socket update ignored - Flipkart job id is not known yet");
+    return;
+  }
+
+  if (currentJobId && job.jobId && job.jobId !== currentJobId) {
+    console.log("Socket update ignored - not the current Flipkart job");
+    return;
+  }
+
+  if (!isProcessing && !currentJobId && job.status !== "started") {
+    console.log("Socket update ignored - no active Flipkart job");
+    return;
+  }
+
+  switch (job.status) {
+    case "started":
+      setFlipkartJobState({
+        isProcessing: true,
+        currentJobId: job.jobId || currentJobId,
+        processingStatus: "Job started...",
+        successMessage: "Job started...",
+      });
+      break;
+
+    case "processing":
+      setFlipkartJobState({
+        isProcessing: true,
+        currentJobId: job.jobId || currentJobId,
+        processingStatus: "Processing PDFs...",
+        successMessage: "Processing PDFs...",
+      });
+      break;
+
+    case "uploading":
+      setFlipkartJobState({
+        isProcessing: true,
+        currentJobId: job.jobId || currentJobId,
+        processingStatus: "Uploading to storage...",
+        successMessage: "Uploading to storage...",
+      });
+      break;
+
+    case "completed": {
+      const outputs = job.outputs || [];
+      setFlipkartJobState({
+        processedFiles: outputs,
+        processingStatus: "Completed!",
+        successMessage: `Successfully processed ${outputs.length} file(s)!`,
+        isProcessing: false,
+        uploadProgress: 0,
+        uploadSpeed: null,
+        currentJobId: null,
+      });
+      setTimeout(() => setFlipkartJobState({ successMessage: "" }), 5000);
+      setTimeout(() => setFlipkartJobState({ processingStatus: "" }), 3000);
+      break;
+    }
+
+    case "error":
+      if (job.error && !job.error.toLowerCase().includes("failed to process")) {
+        setFlipkartJobState({ error: job.error });
+      } else if (job.error && job.error.toLowerCase().includes("failed to process")) {
+        console.log("Ignored generic processing error:", job.error);
+      }
+      setFlipkartJobState({
+        processingStatus: "",
+        isProcessing: false,
+        uploadProgress: 0,
+        uploadSpeed: null,
+        currentJobId: null,
+      });
+      break;
+
+    default:
+      console.log("Unknown job status:", job.status);
+  }
+};
+
+const ensureFlipkartSocket = (apiUrl, userId) => {
+  if (!apiUrl || !userId) return;
+
+  const shouldReconnect =
+    !flipkartSocket ||
+    flipkartSocketApiUrl !== apiUrl ||
+    flipkartSocketUserId !== userId;
+
+  if (shouldReconnect) {
+    if (flipkartSocket) {
+      flipkartSocket.disconnect();
+    }
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+    }
+
+    flipkartSocketApiUrl = apiUrl;
+    flipkartSocketUserId = userId;
+    flipkartSocket = io(apiUrl, {
+      transports: ["websocket"],
+      withCredentials: true,
+    });
+
+    flipkartSocket.on("connect", () => {
+      console.log("Socket connected");
+      flipkartSocket.emit("register", userId);
+    });
+
+    flipkartSocket.on("history:update", applySocketJobUpdate);
+
+    flipkartSocket.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
+    });
+
+    heartbeatInterval = setInterval(() => {
+      if (flipkartSocket?.connected) {
+        flipkartSocket.emit("ping");
+      }
+    }, 20000);
+  } else if (flipkartSocket.connected) {
+    flipkartSocket.emit("register", userId);
+  }
+};
+
+const subscribeToFlipkartJobState = (listener) => {
+  jobStateListeners.add(listener);
+  listener(flipkartJobState);
+  return () => jobStateListeners.delete(listener);
+};
+
 const FlipkartCropper = () => {
   const fileInputRef = useRef(null);
   const { user, isLoaded } = useUser();
   const { openSignIn } = useClerk();
   const navigate = useNavigate();
-  const socket = useRef(null);
 
   // Load settings from cookie if exists
   const savedSettings = Cookies.get("flipkart_settings");
@@ -30,109 +244,33 @@ const FlipkartCropper = () => {
   );
 
   const [files, setFiles] = useState([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processedFiles, setProcessedFiles] = useState([]);
-  const [error, setError] = useState("");
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadSpeed, setUploadSpeed] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(flipkartJobState.isProcessing);
+  const [processedFiles, setProcessedFiles] = useState(flipkartJobState.processedFiles);
+  const [error, setError] = useState(flipkartJobState.error);
+  const [uploadProgress, setUploadProgress] = useState(flipkartJobState.uploadProgress);
+  const [uploadSpeed, setUploadSpeed] = useState(flipkartJobState.uploadSpeed);
   const [dragActive, setDragActive] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [processingStatus, setProcessingStatus] = useState("");
-  const [totalSizeError, setTotalSizeError] = useState("");
+  const [successMessage, setSuccessMessage] = useState(flipkartJobState.successMessage);
+  const [processingStatus, setProcessingStatus] = useState(flipkartJobState.processingStatus);
+  const [totalSizeError, setTotalSizeError] = useState(flipkartJobState.totalSizeError);
+
+  useEffect(() => {
+    return subscribeToFlipkartJobState((state) => {
+      setIsProcessing(state.isProcessing);
+      setProcessedFiles(state.processedFiles);
+      setError(state.error);
+      setUploadProgress(state.uploadProgress);
+      setUploadSpeed(state.uploadSpeed);
+      setSuccessMessage(state.successMessage);
+      setProcessingStatus(state.processingStatus);
+      setTotalSizeError(state.totalSizeError);
+    });
+  }, []);
 
   // Socket connection
   useEffect(() => {
-    if (!import.meta.env.VITE_API_URL) return;
-
-    socket.current = io(import.meta.env.VITE_API_URL, {
-      transports: ["websocket"],
-      withCredentials: true,
-    });
-
-    socket.current.on("connect", () => {
-      console.log("Socket connected");
-      if (user?.id) {
-        socket.current.emit("register", user.id);
-      }
-    });
-
-    socket.current.on("history:update", (job) => {
-      handleSocketUpdate(job);
-    });
-
-    socket.current.on("connect_error", (error) => {
-      console.error("Socket connection error:", error);
-    });
-
-    return () => {
-      if (socket.current) {
-        socket.current.disconnect();
-      }
-    };
-  }, [user]);
-
-  // Heartbeat to keep connection alive
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (socket.current && socket.current.connected) {
-        socket.current.emit("ping");
-      }
-    }, 20000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Handle real-time socket updates
-  const handleSocketUpdate = (job) => {
-    console.log("SOCKET UPDATE:", job);
-
-    switch (job.status) {
-      case "started":
-        setProcessingStatus("🚀 Job started...");
-        setSuccessMessage("🚀 Job started...");
-        break;
-
-      case "processing":
-        setProcessingStatus("⚙️ Processing PDFs...");
-        setSuccessMessage("⚙️ Processing PDFs...");
-        break;
-
-      case "uploading":
-        setProcessingStatus("☁️ Uploading to storage...");
-        setSuccessMessage("☁️ Uploading to storage...");
-        break;
-
-      case "completed":
-        // ✅ CORRECT: Use outputs (not output)
-        const outputs = job.outputs || [];
-        setProcessedFiles(outputs);
-        setProcessingStatus("✅ Completed!");
-        setSuccessMessage(`✅ Successfully processed ${outputs.length} file(s)!`);
-        setIsProcessing(false);
-        setUploadProgress(0);
-        setUploadSpeed(null);
-        setTimeout(() => setSuccessMessage(""), 5000);
-        setTimeout(() => setProcessingStatus(""), 3000);
-        break;
-
-      case "error":
-        // Only show error if it's a genuine processing error, not a "failed to process" generic message
-        if (job.error && !job.error.toLowerCase().includes("failed to process")) {
-          setError(job.error);
-        } else if (job.error && job.error.toLowerCase().includes("failed to process")) {
-          // Silently ignore generic failed to process errors
-          console.log("Ignored generic processing error:", job.error);
-        }
-        setProcessingStatus("");
-        setIsProcessing(false);
-        setUploadProgress(0);
-        setUploadSpeed(null);
-        break;
-
-      default:
-        console.log("Unknown job status:", job.status);
-    }
-  };
+    ensureFlipkartSocket(import.meta.env.VITE_API_URL, user?.id);
+  }, [user?.id]);
 
   // Persist settings to cookie whenever it changes
   useEffect(() => {
@@ -273,13 +411,17 @@ const FlipkartCropper = () => {
       return;
     }
 
-    setIsProcessing(true);
-    setError("");
-    setTotalSizeError("");
-    setProcessedFiles([]);
-    setUploadProgress(0);
-    setUploadSpeed(null);
-    setProcessingStatus("📤 Starting upload...");
+    setFlipkartJobState({
+      isProcessing: true,
+      error: "",
+      totalSizeError: "",
+      processedFiles: [],
+      uploadProgress: 0,
+      uploadSpeed: null,
+      successMessage: "",
+      processingStatus: "Starting upload...",
+      currentJobId: null,
+    });
 
     try {
       const formData = new FormData();
@@ -300,52 +442,66 @@ const FlipkartCropper = () => {
             const percent = Math.round(
               (progressEvent.loaded * 100) / progressEvent.total
             );
-            setUploadProgress(percent);
-
             const elapsed = (Date.now() - startTime) / 1000;
             const speed = (progressEvent.loaded / 1024 / elapsed).toFixed(2);
-            setUploadSpeed(speed);
+            setFlipkartJobState({ uploadProgress: percent, uploadSpeed: speed });
           },
         }
       );
 
       // DEBUG: Log the API response
       console.log("API RESPONSE:", res.data);
+
+      if (res.data.toolName && res.data.toolName !== FLIPKART_TOOL_NAME) {
+        console.log("Ignored response for different tool:", res.data.toolName);
+        return;
+      }
+
+      const responseJobId = res.data.jobId || null;
+
+      if (responseJobId) {
+        setFlipkartJobState({ currentJobId: responseJobId });
+      }
       
       // ✅ CORRECT: Check for outputs (not output)
       const outputs = res.data.outputs || [];
       
-      if (outputs.length === 0) {
+      if (outputs.length > 0) {
+        setFlipkartJobState({
+          processedFiles: outputs,
+          successMessage: `Successfully processed ${outputs.length} file(s)!`,
+          processingStatus: "Completed!",
+          isProcessing: false,
+          uploadProgress: 0,
+          uploadSpeed: null,
+          currentJobId: null,
+        });
+        setTimeout(() => setFlipkartJobState({ successMessage: "" }), 5000);
+        setTimeout(() => setFlipkartJobState({ processingStatus: "" }), 3000);
+      } else {
         console.log("No outputs received", res.data);
       }
-      
-      // UI will update from socket events
-      // No need to process response here
       
     } catch (err) {
       console.error(err);
       // Check if error message contains "failed to process" and ignore if so
       const errorMsg = err.response?.data?.error || "Failed to process PDFs. Try again.";
       if (!errorMsg.toLowerCase().includes("failed to process")) {
-        setError(errorMsg);
+        setFlipkartJobState({ error: errorMsg });
       }
-      setIsProcessing(false);
-      setUploadProgress(0);
-      setUploadSpeed(null);
-      setProcessingStatus("");
+      setFlipkartJobState({
+        isProcessing: false,
+        uploadProgress: 0,
+        uploadSpeed: null,
+        processingStatus: "",
+        currentJobId: null,
+      });
     }
   };
 
   const handleReset = () => {
     setFiles([]);
-    setProcessedFiles([]);
-    setError("");
-    setTotalSizeError("");
-    setUploadProgress(0);
-    setUploadSpeed(null);
-    setSuccessMessage("");
-    setProcessingStatus("");
-    setIsProcessing(false);
+    resetFlipkartJobState();
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 

@@ -5,6 +5,25 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Helmet } from "react-helmet";
 import { useUser, useClerk } from "@clerk/clerk-react";
 import Cookies from "js-cookie";
+import { createSessionJobStore } from "../utils/sessionJobStore";
+
+const MEESHO_TOOL_NAME = "MeshooCropper";
+
+const meeshoJobInitialState = {
+  isProcessing: false,
+  processedFiles: [],
+  error: "",
+  uploadProgress: 0,
+  uploadSpeed: null,
+  successMessage: "",
+  totalSizeError: "",
+  currentJobId: null,
+};
+
+const meeshoJobStore = createSessionJobStore(
+  "meesho_cropper_job_state",
+  meeshoJobInitialState
+);
 
 const MeshooCropper = () => {
   const fileInputRef = useRef(null);
@@ -29,14 +48,26 @@ const MeshooCropper = () => {
   );
 
   const [files, setFiles] = useState([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processedFiles, setProcessedFiles] = useState([]);
-  const [error, setError] = useState("");
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadSpeed, setUploadSpeed] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(meeshoJobStore.getState().isProcessing);
+  const [processedFiles, setProcessedFiles] = useState(meeshoJobStore.getState().processedFiles);
+  const [error, setError] = useState(meeshoJobStore.getState().error);
+  const [uploadProgress, setUploadProgress] = useState(meeshoJobStore.getState().uploadProgress);
+  const [uploadSpeed, setUploadSpeed] = useState(meeshoJobStore.getState().uploadSpeed);
   const [dragActive, setDragActive] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [totalSizeError, setTotalSizeError] = useState("");
+  const [successMessage, setSuccessMessage] = useState(meeshoJobStore.getState().successMessage);
+  const [totalSizeError, setTotalSizeError] = useState(meeshoJobStore.getState().totalSizeError);
+
+  useEffect(() => {
+    return meeshoJobStore.subscribe((state) => {
+      setIsProcessing(state.isProcessing);
+      setProcessedFiles(state.processedFiles);
+      setError(state.error);
+      setUploadProgress(state.uploadProgress);
+      setUploadSpeed(state.uploadSpeed);
+      setSuccessMessage(state.successMessage);
+      setTotalSizeError(state.totalSizeError);
+    });
+  }, []);
 
   // Persist settings to cookie whenever it changes
   useEffect(() => {
@@ -157,12 +188,16 @@ const MeshooCropper = () => {
       return;
     }
 
-    setIsProcessing(true);
-    setError("");
-    setTotalSizeError("");
-    setProcessedFiles([]);
-    setUploadProgress(0);
-    setUploadSpeed(null);
+    meeshoJobStore.setState({
+      isProcessing: true,
+      error: "",
+      totalSizeError: "",
+      processedFiles: [],
+      uploadProgress: 0,
+      uploadSpeed: null,
+      successMessage: "",
+      currentJobId: null,
+    });
 
     try {
       const formData = new FormData();
@@ -181,40 +216,46 @@ const MeshooCropper = () => {
             const percent = Math.round(
               (progressEvent.loaded * 100) / progressEvent.total
             );
-            setUploadProgress(percent);
-
             const elapsed = (Date.now() - startTime) / 1000;
             const speed = (progressEvent.loaded / 1024 / elapsed).toFixed(2);
-            setUploadSpeed(speed);
+            meeshoJobStore.setState({ uploadProgress: percent, uploadSpeed: speed });
           },
         }
       );
 
-      setProcessedFiles(res.data.outputs || []);
-      setSuccessMessage(`Successfully processed ${res.data.outputs?.length || 0} file(s)!`);
-      setTimeout(() => setSuccessMessage(""), 5000);
+      if (res.data.toolName && res.data.toolName !== MEESHO_TOOL_NAME) {
+        console.log("Ignored response for different tool:", res.data.toolName);
+        return;
+      }
+
+      const responseJobId = res.data.jobId || null;
+      const outputs = res.data.outputs || [];
+      meeshoJobStore.setState({
+        processedFiles: outputs,
+        successMessage: `Successfully processed ${outputs.length} file(s)!`,
+        currentJobId: responseJobId,
+      });
+      setTimeout(() => meeshoJobStore.setState({ successMessage: "" }), 5000);
     } catch (err) {
       console.error(err);
       // Check if error message contains "failed to process" and ignore if so
       const errorMsg = err.response?.data?.error || "Failed to process PDFs. Try again.";
       if (!errorMsg.toLowerCase().includes("failed to process")) {
-        setError(errorMsg);
+        meeshoJobStore.setState({ error: errorMsg });
       }
     } finally {
-      setIsProcessing(false);
-      setUploadProgress(0);
-      setUploadSpeed(null);
+      meeshoJobStore.setState({
+        isProcessing: false,
+        uploadProgress: 0,
+        uploadSpeed: null,
+        currentJobId: null,
+      });
     }
   };
 
   const handleReset = () => {
     setFiles([]);
-    setProcessedFiles([]);
-    setError("");
-    setTotalSizeError("");
-    setUploadProgress(0);
-    setUploadSpeed(null);
-    setSuccessMessage("");
+    meeshoJobStore.reset();
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 

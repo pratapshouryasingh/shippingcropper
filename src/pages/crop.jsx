@@ -6,18 +6,120 @@ import { useUser, useClerk } from "@clerk/clerk-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Helmet } from "react-helmet";
 import { io } from "socket.io-client";
+import { createSessionJobStore } from "../utils/sessionJobStore";
 import { 
   FiUpload, FiDownload, FiCrop, FiX, FiChevronLeft, 
   FiChevronRight, FiInfo, FiCheck, FiAlertCircle, FiLoader, FiFile,
   FiGrid, FiTrash2, FiFileText, FiPlus, FiSliders, FiCornerUpRight, FiFolder
 } from "react-icons/fi";
 
+const PDF_CROPPER_TOOL_NAME = "FrontendCropper";
+
+const cropperJobInitialState = {
+  isCropping: false,
+  error: null,
+  success: null,
+  uploadProgress: 0,
+  uploadSpeed: null,
+  processedFiles: [],
+  totalSizeError: "",
+  currentJobId: null,
+};
+
+const cropperJobStore = createSessionJobStore(
+  "pdf_cropper_job_state",
+  cropperJobInitialState
+);
+
+let cropperSocket = null;
+let cropperSocketApiUrl = "";
+let cropperSocketUserId = "";
+
+const applyCropperSocketUpdate = (job) => {
+  console.log("PdfCropper received socket update:", job);
+  const { currentJobId } = cropperJobStore.getState();
+
+  if (job.toolName && job.toolName !== PDF_CROPPER_TOOL_NAME) {
+    console.log("Socket update ignored - not a PDF cropper job");
+    return;
+  }
+
+  if (!currentJobId || job.jobId !== currentJobId) {
+    console.log("Socket update ignored - not for current job or no current job");
+    return;
+  }
+
+  if (job.status === "completed" && job.outputs && job.outputs.length > 0) {
+    cropperJobStore.setState({
+      processedFiles: job.outputs,
+      success: `Done! ${job.outputs.length} file(s) ready to download.`,
+      isCropping: false,
+      uploadProgress: 0,
+      uploadSpeed: null,
+      currentJobId: null,
+    });
+    setTimeout(() => cropperJobStore.setState({ success: null }), 5000);
+    return;
+  }
+
+  if (job.status === "error") {
+    cropperJobStore.setState({
+      error: job.error || "Processing failed",
+      isCropping: false,
+      uploadProgress: 0,
+      uploadSpeed: null,
+      currentJobId: null,
+    });
+    return;
+  }
+
+  if (job.status === "processing") {
+    cropperJobStore.setState({ success: "Processing your PDFs..." });
+  } else if (job.status === "uploading") {
+    cropperJobStore.setState({ success: "Uploading results to cloud..." });
+  }
+};
+
+const ensureCropperSocket = (apiUrl, userId) => {
+  if (!apiUrl || !userId) return;
+
+  const shouldReconnect =
+    !cropperSocket ||
+    cropperSocketApiUrl !== apiUrl ||
+    cropperSocketUserId !== userId;
+
+  if (shouldReconnect) {
+    if (cropperSocket) {
+      cropperSocket.disconnect();
+    }
+
+    cropperSocketApiUrl = apiUrl;
+    cropperSocketUserId = userId;
+    cropperSocket = io(apiUrl, {
+      transports: ["websocket"],
+      withCredentials: true,
+    });
+
+    cropperSocket.on("connect", () => {
+      console.log("Socket connected in PdfCropper");
+      cropperSocket.emit("register", userId);
+    });
+
+    cropperSocket.on("history:update", applyCropperSocketUpdate);
+
+    cropperSocket.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
+    });
+  } else if (cropperSocket.connected) {
+    cropperSocket.emit("register", userId);
+  }
+};
+
 const PdfCropper = () => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const fileInputRef = useRef(null);
   const addMoreInputRef = useRef(null);
-  const socketRef = useRef(null);
   
   const [pdfDocs, setPdfDocs] = useState([]);
   const [currentPdfIndex, setCurrentPdfIndex] = useState(0);
@@ -26,24 +128,37 @@ const PdfCropper = () => {
   const [cropBox, setCropBox] = useState(null);
   const [files, setFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isCropping, setIsCropping] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
+  const [isCropping, setIsCropping] = useState(cropperJobStore.getState().isCropping);
+  const [error, setError] = useState(cropperJobStore.getState().error);
+  const [success, setSuccess] = useState(cropperJobStore.getState().success);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [pagePreviews, setPagePreviews] = useState([]);
   const [showInfoPanel, setShowInfoPanel] = useState(true);
   const [showThumbnails, setShowThumbnails] = useState(true);
   const [selectionOpacity, setSelectionOpacity] = useState(0.25);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadSpeed, setUploadSpeed] = useState(null);
-  const [processedFiles, setProcessedFiles] = useState([]);
-  const [totalSizeError, setTotalSizeError] = useState("");
-  const [currentJobId, setCurrentJobId] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(cropperJobStore.getState().uploadProgress);
+  const [uploadSpeed, setUploadSpeed] = useState(cropperJobStore.getState().uploadSpeed);
+  const [processedFiles, setProcessedFiles] = useState(cropperJobStore.getState().processedFiles);
+  const [totalSizeError, setTotalSizeError] = useState(cropperJobStore.getState().totalSizeError);
+  const [currentJobId, setCurrentJobId] = useState(cropperJobStore.getState().currentJobId);
   
   const { user, isLoaded } = useUser();
   const { openSignIn } = useClerk();
 
   const currentPdfDoc = pdfDocs[currentPdfIndex];
+
+  useEffect(() => {
+    return cropperJobStore.subscribe((state) => {
+      setIsCropping(state.isCropping);
+      setError(state.error);
+      setSuccess(state.success);
+      setUploadProgress(state.uploadProgress);
+      setUploadSpeed(state.uploadSpeed);
+      setProcessedFiles(state.processedFiles);
+      setTotalSizeError(state.totalSizeError);
+      setCurrentJobId(state.currentJobId);
+    });
+  }, []);
 
   // Debug logger for processedFiles
   useEffect(() => {
@@ -56,70 +171,8 @@ const PdfCropper = () => {
 
   // Socket connection
   useEffect(() => {
-    if (!import.meta.env.VITE_API_URL) return;
-
-    socketRef.current = io(import.meta.env.VITE_API_URL, {
-      transports: ["websocket"],
-      withCredentials: true,
-    });
-
-    socketRef.current.on("connect", () => {
-      console.log("Socket connected in PdfCropper");
-      if (user?.id) {
-        socketRef.current.emit("register", user.id);
-      }
-    });
-
-    socketRef.current.on("history:update", (job) => {
-      console.log("PdfCropper received socket update:", job);
-      console.log("Job status:", job.status);
-      console.log("Current job ID:", currentJobId);
-      console.log("Job has outputs:", !!job.outputs);
-      console.log("Outputs length:", job.outputs?.length);
-      
-      // Only process if this is the current job
-      if (currentJobId && job.jobId === currentJobId) {
-        if (job.status === "completed" && job.outputs && job.outputs.length > 0) {
-          console.log("Setting processedFiles from socket for job:", job.jobId);
-          console.log("Outputs from socket:", job.outputs);
-          setProcessedFiles(job.outputs);
-          setSuccess(`Done! ${job.outputs.length} file(s) ready to download.`);
-          setIsCropping(false);
-          setUploadProgress(0);
-          setUploadSpeed(null);
-          setCurrentJobId(null);
-          setTimeout(() => setSuccess(null), 5000);
-        } else if (job.status === "error") {
-          console.error("Socket error for job:", job.error);
-          setError(job.error || "Processing failed");
-          setIsCropping(false);
-          setUploadProgress(0);
-          setUploadSpeed(null);
-          setCurrentJobId(null);
-        } else {
-          console.log("Job status update:", job.status, job.message);
-          // Update progress message based on status
-          if (job.status === "processing") {
-            setSuccess("Processing your PDFs...");
-          } else if (job.status === "uploading") {
-            setSuccess("Uploading results to cloud...");
-          }
-        }
-      } else {
-        console.log("Socket update ignored - not for current job or no current job");
-      }
-    });
-
-    socketRef.current.on("connect_error", (error) => {
-      console.error("Socket connection error:", error);
-    });
-
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
-    };
-  }, [user, currentJobId]);
+    ensureCropperSocket(import.meta.env.VITE_API_URL, user?.id);
+  }, [user?.id]);
 
   // Check total size of files
   const getTotalSize = (fileList) => {
@@ -154,10 +207,12 @@ const PdfCropper = () => {
       setTotalPages(0);
       setCropBox(null);
       setPagePreviews([]);
-      setUploadProgress(0);
-      setUploadSpeed(null);
-      setProcessedFiles([]);
-      setCurrentJobId(null);
+      cropperJobStore.setState({
+        uploadProgress: 0,
+        uploadSpeed: null,
+        processedFiles: [],
+        currentJobId: null,
+      });
       return;
     }
     
@@ -274,14 +329,16 @@ const PdfCropper = () => {
       return;
     }
 
-    setIsCropping(true);
-    setError(null);
-    setTotalSizeError("");
-    setSuccess("Starting crop process...");
-    setUploadProgress(0);
-    setUploadSpeed(null);
-    setProcessedFiles([]);
-    setCurrentJobId(null);
+    cropperJobStore.setState({
+      isCropping: true,
+      error: null,
+      totalSizeError: "",
+      success: "Starting crop process...",
+      uploadProgress: 0,
+      uploadSpeed: null,
+      processedFiles: [],
+      currentJobId: null,
+    });
 
     try {
       const canvas = canvasRef.current;
@@ -325,20 +382,23 @@ const PdfCropper = () => {
             const percent = Math.round(
               (progressEvent.loaded * 100) / progressEvent.total
             );
-            setUploadProgress(percent);
-
             const elapsed = (Date.now() - startTime) / 1000; 
             const speed = (progressEvent.loaded / 1024 / elapsed).toFixed(2);
-            setUploadSpeed(speed);
+            cropperJobStore.setState({ uploadProgress: percent, uploadSpeed: speed });
           }
         }
       );
 
       console.log("API Response:", res.data);
+
+      if (res.data.toolName && res.data.toolName !== PDF_CROPPER_TOOL_NAME) {
+        console.log("Ignored response for different tool:", res.data.toolName);
+        return;
+      }
       
       // Store job ID for socket tracking
       if (res.data.jobId) {
-        setCurrentJobId(res.data.jobId);
+        cropperJobStore.setState({ currentJobId: res.data.jobId });
         console.log("Setting current job ID:", res.data.jobId);
       }
       
@@ -350,18 +410,20 @@ const PdfCropper = () => {
         console.log("First output URL:", outputs[0].url);
         
         // Set processed files immediately from API response
-        setProcessedFiles(outputs);
-        setSuccess(`Done! ${outputs.length} file(s) ready to download.`);
-        setIsCropping(false);
-        setUploadProgress(0);
-        setUploadSpeed(null);
-        setCurrentJobId(null);
+        cropperJobStore.setState({
+          processedFiles: outputs,
+          success: `Done! ${outputs.length} file(s) ready to download.`,
+          isCropping: false,
+          uploadProgress: 0,
+          uploadSpeed: null,
+          currentJobId: null,
+        });
         
         // Auto clear success message after 5 seconds
-        setTimeout(() => setSuccess(null), 5000);
+        setTimeout(() => cropperJobStore.setState({ success: null }), 5000);
       } else {
         console.log("No outputs in API response, waiting for socket update for job:", res.data.jobId);
-        setSuccess("Processing completed! Waiting for download links...");
+        cropperJobStore.setState({ success: "Processing completed! Waiting for download links..." });
         // Don't set isCropping to false yet - wait for socket
         // Socket will handle setting isCropping to false when completed
       }
@@ -369,11 +431,13 @@ const PdfCropper = () => {
     } catch (err) {
       console.error("Crop error:", err);
       const errorMsg = err.response?.data?.error || err.message || "Crop operation failed. Please try again.";
-      setError(errorMsg);
-      setIsCropping(false);
-      setUploadProgress(0);
-      setUploadSpeed(null);
-      setCurrentJobId(null);
+      cropperJobStore.setState({
+        error: errorMsg,
+        isCropping: false,
+        uploadProgress: 0,
+        uploadSpeed: null,
+        currentJobId: null,
+      });
     }
   };
 
@@ -404,13 +468,15 @@ const PdfCropper = () => {
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
-    setTotalSizeError("");
-    setUploadProgress(0);
-    setUploadSpeed(null);
-    setProcessedFiles([]);
-    setCurrentJobId(null);
+    cropperJobStore.setState({
+      error: null,
+      success: null,
+      totalSizeError: "",
+      uploadProgress: 0,
+      uploadSpeed: null,
+      processedFiles: [],
+      currentJobId: null,
+    });
     
     const droppedFiles = Array.from(e.dataTransfer.files).filter(
       file => file.type === "application/pdf"
@@ -461,9 +527,11 @@ const PdfCropper = () => {
       setFiles([]);
       setPdfDocs([]);
       setCurrentPdfIndex(0);
-      setTotalSizeError("");
-      setProcessedFiles([]);
-      setCurrentJobId(null);
+      cropperJobStore.setState({
+        totalSizeError: "",
+        processedFiles: [],
+        currentJobId: null,
+      });
     } else {
       const newFiles = files.filter((_, i) => i !== index);
       const newPdfDocs = pdfDocs.filter((_, i) => i !== index);
@@ -482,13 +550,15 @@ const PdfCropper = () => {
     }
     
     setCropBox(null);
-    setError(null);
-    setSuccess(null);
+    cropperJobStore.setState({
+      error: null,
+      success: null,
+      uploadProgress: 0,
+      uploadSpeed: null,
+    });
     setPageNum(1);
     setTotalPages(0);
     setPagePreviews([]);
-    setUploadProgress(0);
-    setUploadSpeed(null);
   };
 
   const addMoreFiles = (e) => {
@@ -544,14 +614,8 @@ const PdfCropper = () => {
 
   const handleReset = () => {
     setFiles([]);
-    setProcessedFiles([]);
-    setError(null);
-    setTotalSizeError("");
-    setUploadProgress(0);
-    setUploadSpeed(null);
-    setSuccess(null);
+    cropperJobStore.reset();
     setCropBox(null);
-    setCurrentJobId(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 

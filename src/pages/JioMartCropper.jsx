@@ -5,6 +5,25 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Helmet } from "react-helmet";
 import { useUser, useClerk } from "@clerk/clerk-react";
 import Cookies from "js-cookie";
+import { createSessionJobStore } from "../utils/sessionJobStore";
+
+const JIOMART_TOOL_NAME = "JioMartCropper";
+
+const jiomartJobInitialState = {
+  isProcessing: false,
+  processedFiles: [],
+  error: "",
+  uploadProgress: 0,
+  uploadSpeed: null,
+  successMessage: "",
+  totalSizeError: "",
+  currentJobId: null,
+};
+
+const jiomartJobStore = createSessionJobStore(
+  "jiomart_cropper_job_state",
+  jiomartJobInitialState
+);
 
 const JioMartCropper = () => {
   const fileInputRef = useRef(null);
@@ -28,14 +47,26 @@ const JioMartCropper = () => {
   );
 
   const [files, setFiles] = useState([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processedFiles, setProcessedFiles] = useState([]);
-  const [error, setError] = useState("");
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadSpeed, setUploadSpeed] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(jiomartJobStore.getState().isProcessing);
+  const [processedFiles, setProcessedFiles] = useState(jiomartJobStore.getState().processedFiles);
+  const [error, setError] = useState(jiomartJobStore.getState().error);
+  const [uploadProgress, setUploadProgress] = useState(jiomartJobStore.getState().uploadProgress);
+  const [uploadSpeed, setUploadSpeed] = useState(jiomartJobStore.getState().uploadSpeed);
   const [dragActive, setDragActive] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [totalSizeError, setTotalSizeError] = useState("");
+  const [successMessage, setSuccessMessage] = useState(jiomartJobStore.getState().successMessage);
+  const [totalSizeError, setTotalSizeError] = useState(jiomartJobStore.getState().totalSizeError);
+
+  useEffect(() => {
+    return jiomartJobStore.subscribe((state) => {
+      setIsProcessing(state.isProcessing);
+      setProcessedFiles(state.processedFiles);
+      setError(state.error);
+      setUploadProgress(state.uploadProgress);
+      setUploadSpeed(state.uploadSpeed);
+      setSuccessMessage(state.successMessage);
+      setTotalSizeError(state.totalSizeError);
+    });
+  }, []);
 
   // Persist settings to cookie whenever it changes
   useEffect(() => {
@@ -156,12 +187,16 @@ const JioMartCropper = () => {
       return;
     }
 
-    setIsProcessing(true);
-    setError("");
-    setTotalSizeError("");
-    setProcessedFiles([]);
-    setUploadProgress(0);
-    setUploadSpeed(null);
+    jiomartJobStore.setState({
+      isProcessing: true,
+      error: "",
+      totalSizeError: "",
+      processedFiles: [],
+      uploadProgress: 0,
+      uploadSpeed: null,
+      successMessage: "",
+      currentJobId: null,
+    });
 
     try {
       const formData = new FormData();
@@ -180,40 +215,46 @@ const JioMartCropper = () => {
             const percent = Math.round(
               (progressEvent.loaded * 100) / progressEvent.total
             );
-            setUploadProgress(percent);
-
             const elapsed = (Date.now() - startTime) / 1000;
             const speed = (progressEvent.loaded / 1024 / elapsed).toFixed(2);
-            setUploadSpeed(speed);
+            jiomartJobStore.setState({ uploadProgress: percent, uploadSpeed: speed });
           },
         }
       );
 
-      setProcessedFiles(res.data.outputs || []);
-      setSuccessMessage(`Successfully processed ${res.data.outputs?.length || 0} file(s)!`);
-      setTimeout(() => setSuccessMessage(""), 5000);
+      if (res.data.toolName && res.data.toolName !== JIOMART_TOOL_NAME) {
+        console.log("Ignored response for different tool:", res.data.toolName);
+        return;
+      }
+
+      const responseJobId = res.data.jobId || null;
+      const outputs = res.data.outputs || [];
+      jiomartJobStore.setState({
+        processedFiles: outputs,
+        successMessage: `Successfully processed ${outputs.length} file(s)!`,
+        currentJobId: responseJobId,
+      });
+      setTimeout(() => jiomartJobStore.setState({ successMessage: "" }), 5000);
     } catch (err) {
       console.error(err);
       // Check if error message contains "failed to process" and ignore if so
       const errorMsg = err.response?.data?.error || "Failed to process PDFs. Try again.";
       if (!errorMsg.toLowerCase().includes("failed to process")) {
-        setError(errorMsg);
+        jiomartJobStore.setState({ error: errorMsg });
       }
     } finally {
-      setIsProcessing(false);
-      setUploadProgress(0);
-      setUploadSpeed(null);
+      jiomartJobStore.setState({
+        isProcessing: false,
+        uploadProgress: 0,
+        uploadSpeed: null,
+        currentJobId: null,
+      });
     }
   };
 
   const handleReset = () => {
     setFiles([]);
-    setProcessedFiles([]);
-    setError("");
-    setTotalSizeError("");
-    setUploadProgress(0);
-    setUploadSpeed(null);
-    setSuccessMessage("");
+    jiomartJobStore.reset();
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
