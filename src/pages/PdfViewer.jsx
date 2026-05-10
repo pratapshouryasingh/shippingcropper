@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { GlobalWorkerOptions, getDocument } from "pdfjs-dist";
 import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import JSZip from "jszip";
@@ -8,22 +8,80 @@ import { jsPDF } from "jspdf";
 import mammoth from "mammoth";
 import { useUser, useClerk } from "@clerk/clerk-react";
 import Tesseract from "tesseract.js";
+import { createPageStateStore } from "../utils/pageStateStore";
 
 GlobalWorkerOptions.workerSrc = workerSrc;
+
+const pdfViewerInitialState = {
+  pages: [],
+  status: "",
+  isDragging: false,
+  fileName: "",
+  isProcessing: false,
+  extractedText: "",
+  activeTab: "preview",
+  fileSize: 0,
+  showMobileMenu: false,
+  hasFile: false,
+};
+
+const pdfViewerStateStore = createPageStateStore(pdfViewerInitialState);
 
 export default function UniversalConverter() {
   const { isSignedIn } = useUser();
   const { openSignIn } = useClerk();
-  const [pages, setPages] = useState([]);
-  const [status, setStatus] = useState("");
-  const [isDragging, setIsDragging] = useState(false);
-  const [fileName, setFileName] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [extractedText, setExtractedText] = useState("");
-  const [activeTab, setActiveTab] = useState("preview");
-  const [fileSize, setFileSize] = useState(0);
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [hasFile, setHasFile] = useState(false);
+  const restoredState = pdfViewerStateStore.getState();
+  const [pages, setPages] = useState(restoredState.pages);
+  const [status, setStatus] = useState(restoredState.status);
+  const [isDragging, setIsDragging] = useState(restoredState.isDragging);
+  const [fileName, setFileName] = useState(restoredState.fileName);
+  const [isProcessing, setIsProcessing] = useState(restoredState.isProcessing);
+  const [extractedText, setExtractedText] = useState(restoredState.extractedText);
+  const [activeTab, setActiveTab] = useState(restoredState.activeTab);
+  const [fileSize, setFileSize] = useState(restoredState.fileSize);
+  const [showMobileMenu, setShowMobileMenu] = useState(restoredState.showMobileMenu);
+  const [hasFile, setHasFile] = useState(restoredState.hasFile);
+
+  useEffect(() => {
+    return pdfViewerStateStore.subscribe((state) => {
+      setPages(state.pages);
+      setStatus(state.status);
+      setIsDragging(state.isDragging);
+      setFileName(state.fileName);
+      setIsProcessing(state.isProcessing);
+      setExtractedText(state.extractedText);
+      setActiveTab(state.activeTab);
+      setFileSize(state.fileSize);
+      setShowMobileMenu(state.showMobileMenu);
+      setHasFile(state.hasFile);
+    });
+  }, []);
+
+  useEffect(() => {
+    pdfViewerStateStore.setState({
+      pages,
+      status,
+      isDragging,
+      fileName,
+      isProcessing,
+      extractedText,
+      activeTab,
+      fileSize,
+      showMobileMenu,
+      hasFile,
+    });
+  }, [
+    pages,
+    status,
+    isDragging,
+    fileName,
+    isProcessing,
+    extractedText,
+    activeTab,
+    fileSize,
+    showMobileMenu,
+    hasFile,
+  ]);
 
   const getFileType = (file) => {
     if (file.type === "application/pdf") return "pdf";
@@ -399,6 +457,7 @@ File Size: ${formatFileSize(fileSize)}
   }, []);
 
   const clearFiles = () => {
+    pdfViewerStateStore.reset();
     setPages([]);
     setFileName("");
     setStatus("");

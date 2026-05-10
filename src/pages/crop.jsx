@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Helmet } from "react-helmet";
 import { io } from "socket.io-client";
 import { createSessionJobStore } from "../utils/sessionJobStore";
+import { createPageStateStore } from "../utils/pageStateStore";
 import { 
   FiUpload, FiDownload, FiCrop, FiX, FiChevronLeft, 
   FiChevronRight, FiInfo, FiCheck, FiAlertCircle, FiLoader, FiFile,
@@ -30,6 +31,22 @@ const cropperJobStore = createSessionJobStore(
   "pdf_cropper_job_state",
   cropperJobInitialState
 );
+
+const cropperUiInitialState = {
+  pdfDocs: [],
+  currentPdfIndex: 0,
+  pageNum: 1,
+  totalPages: 0,
+  cropBox: null,
+  files: [],
+  isLoading: false,
+  pagePreviews: [],
+  showInfoPanel: true,
+  showThumbnails: true,
+  selectionOpacity: 0.25,
+};
+
+const cropperUiStore = createPageStateStore(cropperUiInitialState);
 
 let cropperSocket = null;
 let cropperSocketApiUrl = "";
@@ -121,21 +138,22 @@ const PdfCropper = () => {
   const fileInputRef = useRef(null);
   const addMoreInputRef = useRef(null);
   
-  const [pdfDocs, setPdfDocs] = useState([]);
-  const [currentPdfIndex, setCurrentPdfIndex] = useState(0);
-  const [pageNum, setPageNum] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
-  const [cropBox, setCropBox] = useState(null);
-  const [files, setFiles] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const restoredUiState = cropperUiStore.getState();
+  const [pdfDocs, setPdfDocs] = useState(restoredUiState.pdfDocs);
+  const [currentPdfIndex, setCurrentPdfIndex] = useState(restoredUiState.currentPdfIndex);
+  const [pageNum, setPageNum] = useState(restoredUiState.pageNum);
+  const [totalPages, setTotalPages] = useState(restoredUiState.totalPages);
+  const [cropBox, setCropBox] = useState(restoredUiState.cropBox);
+  const [files, setFiles] = useState(restoredUiState.files);
+  const [isLoading, setIsLoading] = useState(restoredUiState.isLoading);
   const [isCropping, setIsCropping] = useState(cropperJobStore.getState().isCropping);
   const [error, setError] = useState(cropperJobStore.getState().error);
   const [success, setSuccess] = useState(cropperJobStore.getState().success);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
-  const [pagePreviews, setPagePreviews] = useState([]);
-  const [showInfoPanel, setShowInfoPanel] = useState(true);
-  const [showThumbnails, setShowThumbnails] = useState(true);
-  const [selectionOpacity, setSelectionOpacity] = useState(0.25);
+  const [pagePreviews, setPagePreviews] = useState(restoredUiState.pagePreviews);
+  const [showInfoPanel, setShowInfoPanel] = useState(restoredUiState.showInfoPanel);
+  const [showThumbnails, setShowThumbnails] = useState(restoredUiState.showThumbnails);
+  const [selectionOpacity, setSelectionOpacity] = useState(restoredUiState.selectionOpacity);
   const [uploadProgress, setUploadProgress] = useState(cropperJobStore.getState().uploadProgress);
   const [uploadSpeed, setUploadSpeed] = useState(cropperJobStore.getState().uploadSpeed);
   const [processedFiles, setProcessedFiles] = useState(cropperJobStore.getState().processedFiles);
@@ -146,6 +164,50 @@ const PdfCropper = () => {
   const { openSignIn } = useClerk();
 
   const currentPdfDoc = pdfDocs[currentPdfIndex];
+
+  useEffect(() => {
+    return cropperUiStore.subscribe((state) => {
+      setPdfDocs(state.pdfDocs);
+      setCurrentPdfIndex(state.currentPdfIndex);
+      setPageNum(state.pageNum);
+      setTotalPages(state.totalPages);
+      setCropBox(state.cropBox);
+      setFiles(state.files);
+      setIsLoading(state.isLoading);
+      setPagePreviews(state.pagePreviews);
+      setShowInfoPanel(state.showInfoPanel);
+      setShowThumbnails(state.showThumbnails);
+      setSelectionOpacity(state.selectionOpacity);
+    });
+  }, []);
+
+  useEffect(() => {
+    cropperUiStore.setState({
+      pdfDocs,
+      currentPdfIndex,
+      pageNum,
+      totalPages,
+      cropBox,
+      files,
+      isLoading,
+      pagePreviews,
+      showInfoPanel,
+      showThumbnails,
+      selectionOpacity,
+    });
+  }, [
+    pdfDocs,
+    currentPdfIndex,
+    pageNum,
+    totalPages,
+    cropBox,
+    files,
+    isLoading,
+    pagePreviews,
+    showInfoPanel,
+    showThumbnails,
+    selectionOpacity,
+  ]);
 
   useEffect(() => {
     return cropperJobStore.subscribe((state) => {
@@ -524,6 +586,7 @@ const PdfCropper = () => {
 
   const removeFile = (index = null) => {
     if (index === null) {
+      cropperUiStore.reset();
       setFiles([]);
       setPdfDocs([]);
       setCurrentPdfIndex(0);
@@ -613,6 +676,7 @@ const PdfCropper = () => {
   };
 
   const handleReset = () => {
+    cropperUiStore.reset();
     setFiles([]);
     cropperJobStore.reset();
     setCropBox(null);
