@@ -9,6 +9,7 @@ import mammoth from "mammoth";
 import html2canvas from "html2canvas";
 import { useUser, useClerk } from "@clerk/clerk-react";
 import { createPageStateStore } from "../utils/pageStateStore";
+import { Image, FileImage, FileText, FileArchive, FileDown } from "lucide-react";
 
 GlobalWorkerOptions.workerSrc = workerSrc;
 
@@ -21,7 +22,7 @@ const pdfViewerInitialState = {
   extractedText: "",
   activeTab: "preview",
   fileSize: 0,
-  showMobileMenu: false,
+  // showMobileMenu removed
   hasFile: false,
   fileType: null,
   docxHtml: "",
@@ -42,7 +43,6 @@ export default function UniversalConverter() {
   const [extractedText, setExtractedText] = useState(restoredState.extractedText);
   const [activeTab, setActiveTab] = useState(restoredState.activeTab);
   const [fileSize, setFileSize] = useState(restoredState.fileSize);
-  const [showMobileMenu, setShowMobileMenu] = useState(restoredState.showMobileMenu);
   const [hasFile, setHasFile] = useState(restoredState.hasFile);
   const [fileType, setFileType] = useState(restoredState.fileType);
   const [docxHtml, setDocxHtml] = useState(restoredState.docxHtml);
@@ -58,7 +58,6 @@ export default function UniversalConverter() {
       setExtractedText(state.extractedText);
       setActiveTab(state.activeTab);
       setFileSize(state.fileSize);
-      setShowMobileMenu(state.showMobileMenu);
       setHasFile(state.hasFile);
       setFileType(state.fileType);
       setDocxHtml(state.docxHtml);
@@ -76,7 +75,6 @@ export default function UniversalConverter() {
       extractedText,
       activeTab,
       fileSize,
-      showMobileMenu,
       hasFile,
       fileType,
       docxHtml,
@@ -91,7 +89,6 @@ export default function UniversalConverter() {
     extractedText,
     activeTab,
     fileSize,
-    showMobileMenu,
     hasFile,
     fileType,
     docxHtml,
@@ -145,7 +142,6 @@ export default function UniversalConverter() {
     setIsProcessing(true);
     setExtractedText("");
     setActiveTab("preview");
-    setShowMobileMenu(false);
     setFileType(type);
     setDocxHtml("");
     setExtractedImages([]);
@@ -160,7 +156,7 @@ export default function UniversalConverter() {
       } else if (type === "txt") {
         await handleTXT(file);
       }
-      setStatus("File loaded successfully!");
+      setStatus("Ready to convert");
     } catch (error) {
       console.error("Error processing file:", error);
       setStatus(`Error: ${error.message}`);
@@ -195,7 +191,7 @@ export default function UniversalConverter() {
 
       setPages(pageImages);
       setExtractedText(fullPlainText.trim());
-      setStatus(`PDF loaded – ${pdf.numPages} pages.`);
+      setStatus(`Ready to convert`);
     } catch (error) {
       console.error("PDF processing error:", error);
       throw new Error("Failed to process PDF file. It may be corrupted or password protected.");
@@ -335,7 +331,7 @@ export default function UniversalConverter() {
       pdf.addImage(imgData, "JPEG", x, y, width, height);
       pdf.save(`${fileName.replace(/\.[^/.]+$/, "")}-docx-converted.pdf`);
 
-      setStatus("DOCX → PDF ready ✅");
+      setStatus("Ready to convert");
     } catch (error) {
       console.error("DOCX to PDF error:", error);
       setStatus("Failed to convert DOCX to PDF");
@@ -391,7 +387,7 @@ export default function UniversalConverter() {
       }
 
       pdf.save(`${fileName.replace(/\.[^/.]+$/, "")}-searchable.pdf`);
-      setStatus("Searchable PDF ready ✅");
+      setStatus("Ready to convert");
     } catch (err) {
       console.error(err);
       setStatus("PDF failed");
@@ -425,15 +421,8 @@ export default function UniversalConverter() {
             width: 794,             // A4 width in twips (≈1:√2)
             height: 1123,
           },
-          // Optional: floating positioning (uncomment if inline still fails)
-          // floating: {
-          //   horizontalPosition: { relative: 'page', offset: 0 },
-          //   verticalPosition: { relative: 'page', offset: 0 },
-          //   wrap: 'none',
-          // },
         });
 
-        // 2. Paragraph with page break before (except first)
         const paragraph = new Paragraph({
           pageBreakBefore: i > 0,
           spacing: {
@@ -467,7 +456,7 @@ export default function UniversalConverter() {
       const blob = await Packer.toBlob(doc);
       saveAs(blob, `${fileName.replace(/\.[^/.]+$/, "")}-exact.docx`);
 
-      setStatus("Exact DOCX ready ✅");
+      setStatus("Ready to convert");
     } catch (err) {
       console.error(err);
       setStatus("DOCX failed: " + err.message);
@@ -486,7 +475,7 @@ export default function UniversalConverter() {
       }
       const blob = await zip.generateAsync({ type: "blob" });
       saveAs(blob, `${fileName.replace(/\.[^/.]+$/, "")}-converted.zip`);
-      setStatus("Conversion to JPG complete!");
+      setStatus("Ready to convert");
     } catch (error) {
       setStatus("Error converting to JPG", error);
     }
@@ -503,7 +492,7 @@ export default function UniversalConverter() {
       }
       const blob = await zip.generateAsync({ type: "blob" });
       saveAs(blob, `${fileName.replace(/\.[^/.]+$/, "")}-converted.zip`);
-      setStatus("Conversion to PNG complete!");
+      setStatus("Ready to convert");
     } catch (error) {
       setStatus("Error converting to PNG", error);
     }
@@ -523,7 +512,7 @@ File Size: ${formatFileSize(fileSize)}
       const fullText = header + textContent;
       const blob = new Blob([fullText], { type: "text/plain;charset=utf-8" });
       saveAs(blob, `${fileName.replace(/\.[^/.]+$/, "")}-converted.txt`);
-      setStatus("Conversion to TXT complete!");
+      setStatus("Ready to convert");
     } catch (error) {
       console.error("TXT conversion error:", error);
       setStatus("Error converting to TXT: " + error.message);
@@ -547,7 +536,6 @@ File Size: ${formatFileSize(fileSize)}
     setExtractedText("");
     setFileSize(0);
     setHasFile(false);
-    setShowMobileMenu(false);
     setFileType(null);
     setDocxHtml("");
     setExtractedImages([]);
@@ -558,47 +546,38 @@ File Size: ${formatFileSize(fileSize)}
   };
 
   const conversionOptions = [
-    { name: "JPG", icon: "🖼️", color: "emerald", action: downloadAsJPG },
-    { name: "PNG", icon: "📷", color: "emerald", action: downloadAsPNG },
-    { name: "PDF", icon: "📕", color: "blue", action: downloadAsPDF },
-    { name: "DOCX", icon: "📘", color: "indigo", action: downloadAsDOCX },
-    { name: "TXT", icon: "📝", color: "slate", action: downloadAsTXT },
+    { name: "JPG", icon: Image, color: "emerald", action: downloadAsJPG },
+    { name: "PNG", icon: FileImage, color: "emerald", action: downloadAsPNG },
+    { name: "PDF", icon: FileText, color: "blue", action: downloadAsPDF },
+    { name: "DOCX", icon: FileArchive, color: "indigo", action: downloadAsDOCX },
+    { name: "TXT", icon: FileDown, color: "slate", action: downloadAsTXT },
   ];
 
-  const getButtonClasses = (color) => {
-    const colors = {
-      emerald: "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100",
-      blue: "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100",
-      indigo: "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100",
-      slate: "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100",
-    };
-    return colors[color] || colors.indigo;
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+      {/* Processing Bar */}
       {isProcessing && (
-        <div className="sticky top-0 z-50 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-lg">
-          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3">
+        <div className="sticky top-0 z-50 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex items-center justify-center gap-3">
               <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-              <span className="text-xs sm:text-sm font-medium">{status}</span>
+              <span className="text-sm font-medium">{status}</span>
             </div>
           </div>
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
         {!hasFile && (
-          <div className="flex items-center justify-center min-h-[50vh] sm:min-h-[60vh]">
-            <div className="w-full max-w-2xl">
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="w-full max-w-3xl">
               <div
-                className={`relative bg-white rounded-2xl shadow-lg border-2 transition-all duration-200 ${
+                className={`relative bg-white rounded-3xl shadow-xl border-2 transition-all duration-300 ${
                   isDragging
-                    ? "border-indigo-500 border-dashed scale-[1.02] shadow-xl"
+                    ? "border-indigo-500 border-dashed scale-[1.02] shadow-2xl"
                     : "border-slate-200 border-dashed"
                 }`}
                 onDragOver={(e) => {
@@ -608,51 +587,46 @@ File Size: ${formatFileSize(fileSize)}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={onDrop}
               >
-                <div className="p-6 sm:p-8 md:p-12 lg:p-16">
-                  <div className="text-center">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-sm">
-                      <svg className="w-8 h-8 sm:w-10 sm:h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                <div className="p-8 sm:p-12 lg:p-16 text-center">
+                  <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-violet-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-md">
+                    <svg className="w-10 h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                  </div>
+
+                  <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">
+                    {isDragging ? "Drop your file here" : "Drop a file or click to browse"}
+                  </h2>
+                  <p className="text-slate-500 mb-6 text-sm sm:text-base">
+                    Supports PDF, DOCX, JPG, PNG, TXT — up to 50MB
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                    <input
+                      type="file"
+                      accept=".pdf,.docx,.txt,image/*"
+                      className="hidden"
+                      id="fileInput"
+                      onChange={(e) => e.target.files.length && handleFile(e.target.files[0])}
+                    />
+                    <label
+                      htmlFor="fileInput"
+                      className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-8 py-4 rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all cursor-pointer w-full sm:w-auto"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                       </svg>
-                    </div>
+                      Choose File
+                    </label>
+                    <span className="text-sm text-slate-400">or drag & drop anywhere</span>
+                  </div>
 
-                    <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 mb-2 sm:mb-3">
-                      {isDragging ? "Drop your file here" : "Convert any file"}
-                    </h2>
-                    <p className="text-slate-600 mb-6 sm:mb-8 text-sm sm:text-base">
-                      PDF • DOCX • JPG • PNG • TXT
-                    </p>
-                    <p className="text-xs sm:text-sm text-slate-500 mb-6">Max 50MB</p>
-
-                    <div className="flex flex-col gap-3 sm:gap-4 justify-center">
-                      <input
-                        type="file"
-                        accept=".pdf,.docx,.txt,image/*"
-                        className="hidden"
-                        id="fileInput"
-                        onChange={(e) => e.target.files.length && handleFile(e.target.files[0])}
-                      />
-                      <label
-                        htmlFor="fileInput"
-                        className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold hover:shadow-lg hover:from-indigo-700 hover:to-indigo-800 transition-all cursor-pointer w-full sm:w-auto"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                        </svg>
-                        Choose File
-                      </label>
-                      <p className="text-xs sm:text-sm text-slate-500">
-                        or drag and drop anywhere
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 justify-center mt-6 sm:mt-8">
-                      {["PDF", "DOCX", "JPG", "PNG", "TXT"].map((format) => (
-                        <span key={format} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-xs sm:text-sm font-semibold border border-indigo-100">
-                          {format}
-                        </span>
-                      ))}
-                    </div>
+                  <div className="flex flex-wrap gap-2 justify-center mt-8">
+                    {["PDF", "DOCX", "JPG", "PNG", "TXT"].map((format) => (
+                      <span key={format} className="px-4 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-sm font-medium border border-indigo-100">
+                        {format}
+                      </span>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -661,36 +635,29 @@ File Size: ${formatFileSize(fileSize)}
         )}
 
         {hasFile && pages.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-            <div className="md:col-span-1">
-              <div className="md:hidden mb-4">
-                <button
-                  onClick={() => setShowMobileMenu(!showMobileMenu)}
-                  className="w-full flex items-center justify-between bg-white border border-slate-200 rounded-xl p-3 sm:p-4 font-semibold text-slate-900 hover:bg-slate-50 transition-colors"
-                >
-                  <span>Conversion Options</span>
-                  <svg className={`w-5 h-5 text-slate-500 transition-transform ${showMobileMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className={`space-y-4 md:block ${showMobileMenu ? 'block' : 'hidden'}`}>
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5">
-                  <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Sidebar - File Info & Conversion */}
+            <div className="lg:col-span-1">
+              <div className="space-y-4">
+                {/* Compact File Card */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+                  <div className="flex items-center justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-slate-900 truncate text-sm sm:text-base">{fileName}</h3>
-                      <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                        {formatFileSize(fileSize)} • {pages.length} {pages.length === 1 ? 'page' : 'pages'}
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-indigo-500 flex-shrink-0" />
+                        <h3 className="font-bold text-slate-800 truncate text-sm">{fileName}</h3>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {formatFileSize(fileSize)} • {fileType?.toUpperCase()} • {pages.length} {pages.length === 1 ? 'page' : 'pages'}
                       </p>
                     </div>
-                    <div className="flex gap-1.5 flex-shrink-0">
+                    <div className="flex gap-1 flex-shrink-0">
                       <button
                         onClick={handleNewFile}
                         className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors p-1.5 rounded-lg"
                         title="Convert new file"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
                       </button>
@@ -699,60 +666,69 @@ File Size: ${formatFileSize(fileSize)}
                         className="text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors p-1.5 rounded-lg"
                         title="Clear file"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>
                     </div>
                   </div>
-
-                  {!isProcessing && status && !status.includes("Error") && (
-                    <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-100">
-                      <p className="text-xs text-green-700 flex items-center gap-2">
-                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>{status}</span>
-                      </p>
-                    </div>
-                  )}
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5">
-                  <h3 className="font-bold text-slate-900 mb-4 text-sm sm:text-base">Convert to</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 gap-2 sm:gap-3">
+                {/* Status message (one-liner) */}
+                {!isProcessing && status && !status.includes("Error") && (
+                  <div className="flex items-center gap-2 text-sm text-emerald-600">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="font-medium">Ready to convert</span>
+                  </div>
+                )}
+
+                {/* Conversion Buttons - horizontal grid */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+                  <h3 className="font-bold text-slate-800 mb-3 text-sm">Convert to</h3>
+                  <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
                     {conversionOptions.map((option) => (
                       <button
                         key={option.name}
                         onClick={() => handleDownloadAction(option.action)}
                         disabled={isProcessing}
-                        className={`flex flex-col items-center gap-2 p-3 sm:p-4 rounded-lg border transition-all text-xs sm:text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md ${getButtonClasses(option.color)}`}
+                        className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md hover:scale-[1.02] active:scale-95 ${
+                          option.color === 'emerald' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' :
+                          option.color === 'blue' ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' :
+                          option.color === 'indigo' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100' :
+                          'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                        }`}
                       >
-                        <span className="text-lg sm:text-2xl">{option.icon}</span>
+                        <option.icon className="w-5 h-5" />
                         <span>{option.name}</span>
                       </button>
                     ))}
                   </div>
 
                   {!isSignedIn && (
-                    <p className="text-xs text-amber-700 mt-4 text-center bg-amber-50 rounded-lg p-3 border border-amber-100 font-medium">
-                      Sign in to enable downloads
-                    </p>
+                    <div className="mt-3 p-2 bg-amber-50 rounded-xl border border-amber-100 text-center">
+                      <p className="text-xs text-amber-700 font-medium">
+                        🔒 Sign in to enable downloads
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="md:col-span-2">
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
-                <div className="border-b border-slate-200 bg-slate-50">
+            {/* Preview / Text Area - larger */}
+            <div className="lg:col-span-3">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
+                {/* Tabs */}
+                <div className="border-b border-slate-200 bg-slate-50/80">
                   <div className="flex">
                     <button
                       onClick={() => setActiveTab("preview")}
-                      className={`flex-1 px-3 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition-all ${
+                      className={`flex-1 px-4 py-3 text-sm font-semibold transition-all ${
                         activeTab === "preview"
                           ? "text-indigo-600 border-b-2 border-indigo-600 bg-white"
-                          : "text-slate-600 hover:text-slate-900"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                       }`}
                     >
                       <span className="flex items-center justify-center gap-2">
@@ -764,10 +740,10 @@ File Size: ${formatFileSize(fileSize)}
                     </button>
                     <button
                       onClick={() => setActiveTab("text")}
-                      className={`flex-1 px-3 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition-all border-l border-slate-200 ${
+                      className={`flex-1 px-4 py-3 text-sm font-semibold transition-all border-l border-slate-200 ${
                         activeTab === "text"
                           ? "text-indigo-600 border-b-2 border-indigo-600 bg-white"
-                          : "text-slate-600 hover:text-slate-900"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                       }`}
                     >
                       <span className="flex items-center justify-center gap-2">
@@ -780,34 +756,35 @@ File Size: ${formatFileSize(fileSize)}
                   </div>
                 </div>
 
-                <div className="p-3 sm:p-4 md:p-6 flex-1 overflow-hidden flex flex-col">
+                {/* Content */}
+                <div className="p-4 sm:p-6 flex-1 overflow-y-auto max-h-[600px]">
                   {activeTab === "preview" ? (
-                    <div className="space-y-4 overflow-y-auto flex-1">
+                    <div className="space-y-4">
                       {pages.map((src, i) => (
-                        <div key={i} className="bg-slate-50 rounded-lg p-3 sm:p-4 border border-slate-100">
-                          <div className="text-center text-xs text-slate-500 mb-3 font-medium">
+                        <div key={i} className="bg-slate-50 rounded-xl p-3 border border-slate-100 shadow-sm">
+                          <div className="text-center text-xs text-slate-400 mb-2 font-medium tracking-wide">
                             Page {i + 1} of {pages.length}
                           </div>
                           <img
                             src={src}
                             alt={`Page ${i + 1}`}
-                            className="max-w-full h-auto mx-auto rounded shadow-sm"
+                            className="max-w-full h-auto mx-auto rounded-lg shadow-sm"
                           />
                         </div>
                       ))}
 
                       {extractedImages.length > 0 && (
-                        <div className="bg-slate-50 rounded-lg p-3 sm:p-4 border border-slate-100">
-                          <div className="text-center text-xs text-slate-500 mb-3 font-medium">
+                        <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 shadow-sm">
+                          <div className="text-center text-xs text-slate-400 mb-2 font-medium tracking-wide">
                             Embedded Images ({extractedImages.length})
                           </div>
-                          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                          <div className="grid grid-cols-2 gap-2">
                             {extractedImages.map((url, idx) => (
                               <img
                                 key={idx}
                                 src={url}
                                 alt={`Embedded ${idx+1}`}
-                                className="max-w-full h-auto mx-auto rounded shadow-sm"
+                                className="max-w-full h-auto mx-auto rounded-lg shadow-sm"
                               />
                             ))}
                           </div>
@@ -815,20 +792,20 @@ File Size: ${formatFileSize(fileSize)}
                       )}
                     </div>
                   ) : (
-                    <div className="overflow-y-auto flex-1">
+                    <div className="h-full">
                       {extractedText ? (
-                        <div className="bg-slate-50 rounded-lg p-3 sm:p-4 border border-slate-100 h-full">
-                          <pre className="whitespace-pre-wrap font-sans text-xs sm:text-sm text-slate-700 leading-relaxed">
+                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 h-full">
+                          <pre className="whitespace-pre-wrap font-sans text-sm text-slate-700 leading-relaxed">
                             {extractedText}
                           </pre>
                         </div>
                       ) : (
-                        <div className="text-center py-8 sm:py-12 flex flex-col items-center justify-center">
-                          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                            <span className="text-2xl">📄</span>
+                        <div className="text-center py-12 flex flex-col items-center justify-center">
+                          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <span className="text-3xl">📄</span>
                           </div>
-                          <p className="text-slate-600 font-semibold text-sm sm:text-base">No text extracted yet</p>
-                          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                          <p className="text-slate-600 font-semibold">No text extracted yet</p>
+                          <p className="text-sm text-slate-400 mt-1">
                             {isProcessing ? "Extracting text..." : "Text will appear here after processing"}
                           </p>
                         </div>
