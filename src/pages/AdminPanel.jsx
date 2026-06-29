@@ -97,20 +97,24 @@ export default function AdminPanel() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/all-history`);
       const data = await res.json();
+      let history = [];
       if (data.success && Array.isArray(data.history)) {
-        setAllHistory(data.history);
+        history = data.history;
+        setAllHistory(history);
       } else {
         setAllHistory([]);
       }
+      return history;
     } catch (err) {
       console.error("Failed to fetch history:", err);
       setAllHistory([]);
+      return [];
     } finally {
       setHistoryLoading(false);
     }
   };
 
-  const fetchFiles = async () => {
+  const fetchFiles = async (history = allHistory) => {
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/files`);
@@ -120,7 +124,7 @@ export default function AdminPanel() {
 
       const parsed = data.files.map(file => {
         const jobId = extractJobIdFromPath(file.name);
-        const job = findMatchingJobById(jobId);
+        const job = history.find(job => job.jobId === jobId);
         const tool = job?.toolName || "Unknown";
         const userName = job ? getUserDisplay(job) : "Unknown";
         const userId = job?.userId || "unknown";
@@ -184,7 +188,7 @@ export default function AdminPanel() {
 
   const deleteSelected = async () => {
     if (selectedFiles.length === 0) return;
-    if (!confirm(`Delete ${selectedFiles.length} selected files?`)) return; // using confirm for bulk as per UX (could also use modal)
+    if (!confirm(`Delete ${selectedFiles.length} selected files?`)) return;
     setDeleting(true);
     let success = 0;
     for (const file of selectedFiles) {
@@ -294,7 +298,6 @@ export default function AdminPanel() {
   // Recent activity: combine files and history
   const recentActivity = useMemo(() => {
     const activities = [];
-    // Use files as upload events
     files.forEach(f => {
       if (f.lastModified) {
         activities.push({
@@ -308,8 +311,6 @@ export default function AdminPanel() {
         });
       }
     });
-    // Also could include history entries if they have timestamps
-    // Sort by time desc
     activities.sort((a, b) => b.time - a.time);
     return activities.slice(0, 10);
   }, [files]);
@@ -318,17 +319,14 @@ export default function AdminPanel() {
   const filteredFiles = useMemo(() => {
     let result = files;
 
-    // Tool filter
     if (filterTool !== "All") {
       result = result.filter(f => f.tool === filterTool);
     }
 
-    // User filter
     if (filterUser !== "All") {
       result = result.filter(f => f.userName === filterUser);
     }
 
-    // Date filter
     if (filterDate === "Today") {
       result = result.filter(f => f.lastModified && new Date(f.lastModified).toISOString().slice(0, 10) === todayStr);
     } else if (filterDate === "This Week") {
@@ -339,7 +337,6 @@ export default function AdminPanel() {
       result = result.filter(f => f.lastModified && new Date(f.lastModified).toISOString().slice(0, 7) === currentMonth);
     }
 
-    // Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(f =>
@@ -350,7 +347,6 @@ export default function AdminPanel() {
       );
     }
 
-    // Sort
     switch (sortBy) {
       case "name-asc": result.sort((a, b) => a.name.localeCompare(b.name)); break;
       case "name-desc": result.sort((a, b) => b.name.localeCompare(a.name)); break;
@@ -363,7 +359,6 @@ export default function AdminPanel() {
     return result;
   }, [files, filterTool, filterUser, filterDate, searchQuery, sortBy, todayStr, currentMonth]);
 
-  // User options for filter
   const userOptions = useMemo(() => {
     const users = new Set();
     files.forEach(f => { if (f.userName) users.add(f.userName); });
@@ -371,18 +366,17 @@ export default function AdminPanel() {
   }, [files]);
 
   // ==================== EFFECTS ====================
+  // Fixed: wait for history, then fetch files
   useEffect(() => {
-    if (isLoggedIn) {
-      fetchAllUsersHistory();
-      fetchFiles();
-    }
-  }, [isLoggedIn]);
+    if (!isLoggedIn) return;
 
-  useEffect(() => {
-    if (isLoggedIn && !historyLoading && files.length > 0) {
-      fetchFiles(); // refresh after history loads
-    }
-  }, [historyLoading]);
+    const loadData = async () => {
+      const history = await fetchAllUsersHistory();
+      await fetchFiles(history);
+    };
+
+    loadData();
+  }, [isLoggedIn]);
 
   // ==================== MODALS ====================
   const DeleteModal = () => {
@@ -503,7 +497,17 @@ export default function AdminPanel() {
               />
             </div>
             <button
-              onClick={() => { setRefreshing(true); Promise.all([fetchAllUsersHistory(), fetchFiles()]).finally(() => setRefreshing(false)); }}
+              onClick={async () => {
+                setRefreshing(true);
+                try {
+                  const history = await fetchAllUsersHistory();
+                  await fetchFiles(history);
+                } catch (e) {
+                  console.error(e);
+                } finally {
+                  setRefreshing(false);
+                }
+              }}
               disabled={refreshing}
               className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition disabled:opacity-50"
             >
@@ -710,41 +714,25 @@ export default function AdminPanel() {
                               {isDeleting ? (
                                 <span className="inline-block animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full"></span>
                               ) : (
-                                <div className="relative inline-block text-left">
+                                <div className="flex items-center justify-end gap-2">
+                                  <a href={file.url} download className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition" title="Download">⬇</a>
+                                  <button onClick={() => deleteFile(file)} className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition text-red-500" title="Delete">🗑</button>
                                   <button
-                                    onClick={() => {
-                                      // Toggle dropdown - we'll implement a simple dropdown per row using state
-                                      // For simplicity, we'll use a dropdown menu with buttons
-                                      // Could use a popover but to keep it simple we'll show a small menu
-                                      // We'll use a simple inline menu with icons
-                                    }}
+                                    onClick={() => copyToClipboard(file.url, "File URL")}
                                     className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+                                    title="Copy URL"
                                   >
-                                    ⋮
+                                    📋
                                   </button>
-                                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10 hidden">
-                                    {/* Dropdown items - we'll use a state to toggle, but for brevity we'll just show buttons */}
-                                  </div>
+                                  <button
+                                    onClick={() => copyToClipboard(file.jobId, "Job ID")}
+                                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+                                    title="Copy Job ID"
+                                  >
+                                    🆔
+                                  </button>
                                 </div>
                               )}
-                              <div className="flex items-center justify-end gap-2">
-                                <a href={file.url} download className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition" title="Download">⬇</a>
-                                <button onClick={() => deleteFile(file)} className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition text-red-500" title="Delete">🗑</button>
-                                <button
-                                  onClick={() => copyToClipboard(file.url, "File URL")}
-                                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
-                                  title="Copy URL"
-                                >
-                                  📋
-                                </button>
-                                <button
-                                  onClick={() => copyToClipboard(file.jobId, "Job ID")}
-                                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
-                                  title="Copy Job ID"
-                                >
-                                  🆔
-                                </button>
-                              </div>
                             </td>
                           </tr>
                         );
