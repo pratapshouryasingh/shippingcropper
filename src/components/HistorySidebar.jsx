@@ -21,10 +21,9 @@ const socket = io(import.meta.env.VITE_API_URL, {
   transports: ['websocket', 'polling'],
 });
 
-const HistorySidebar = () => {
+const HistorySidebar = ({ isOpen, onClose }) => {
   const [history, setHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isOpen, setIsOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const { user, isLoaded } = useUser();
 
@@ -62,14 +61,11 @@ const HistorySidebar = () => {
     socket.on("history:update", (newJob) => {
       console.log("Received real-time update:", newJob);
       setHistory((prev) => {
-        // Check if job already exists
         if (prev.some(job => job.jobId === newJob.jobId)) {
-          // Update existing job
           return prev.map(job => 
             job.jobId === newJob.jobId ? newJob : job
           );
         }
-        // Add new job at the beginning
         return [newJob, ...prev];
       });
     });
@@ -88,12 +84,9 @@ const HistorySidebar = () => {
   useEffect(() => {
     if (user && isLoaded) {
       fetchHistory();
-      
-      // Optional: Poll for updates every 30 seconds as fallback
       const interval = setInterval(() => {
         fetchHistory(true);
       }, 30000);
-      
       return () => clearInterval(interval);
     }
   }, [user, isLoaded]);
@@ -130,15 +123,6 @@ const HistorySidebar = () => {
 
   return (
     <>
-      {/* Toggle Button */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className="fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-blue-600 text-white px-3 py-6 rounded-r-2xl shadow-lg hover:bg-blue-700 transition-all"
-      >
-        <History className="w-5 h-5" />
-        <ChevronRight className="w-4 h-4 mt-2" />
-      </button>
-
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -146,7 +130,9 @@ const HistorySidebar = () => {
             animate={{ x: 0 }}
             exit={{ x: -400 }}
             transition={{ type: "spring", damping: 25 }}
-            className="fixed top-0 left-0 h-full w-[380px] bg-white shadow-2xl z-50 flex flex-col"
+            // ✅ CHANGED: sidebar now starts below navbar (top-16 on mobile, top-20 on desktop)
+            // and height fills remaining viewport
+            className="fixed top-16 md:top-20 left-0 h-[calc(100vh-4rem)] md:h-[calc(100vh-5rem)] w-[380px] bg-white shadow-2xl z-40 flex flex-col"
           >
             {/* Header */}
             <div className="bg-blue-600 p-5 text-white">
@@ -164,7 +150,7 @@ const HistorySidebar = () => {
                     <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                   </button>
                   <button 
-                    onClick={() => setIsOpen(false)}
+                    onClick={onClose}
                     className="hover:bg-blue-700 rounded-lg p-2 transition-colors"
                   >
                     <X className="w-4 h-4" />
