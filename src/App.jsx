@@ -9,7 +9,7 @@ import JioMartCropper from "./pages/JioMartCropper";
 import ContactUs from "./pages/ContactUs";
 import PdfCropper from "./pages/crop";
 import HistorySidebar from "./components/HistorySidebar";
-import AdminPanel from "./pages/AdminPanel"; // Add this import
+import AdminPanel from "./pages/AdminPanel";
 import { Helmet } from "react-helmet";
 import { motion } from "framer-motion";
 import "./App.css";
@@ -33,7 +33,7 @@ const FloatingActionButton = ({ onToggleHistory }) => {
     { label: "PDF Converter", path: "/PdfViewer", icon: "fas fa-file-pdf" },
     { label: "PDF Cropper", path: "/crop", icon: "fas fa-crop-alt" },
     { label: "Contact Support", path: "/ContactUs", icon: "fas fa-headset" },
-    { label: "Admin Panel", path: "/admin", icon: "fas fa-lock" }, // Add this
+    { label: "Admin Panel", path: "/admin", icon: "fas fa-lock" },
     { label: "History", action: onToggleHistory, icon: "fas fa-history" }
   ];
 
@@ -111,7 +111,7 @@ const ToolCard = ({ tool, index }) => {
   );
 };
 
-// ==================== VALUE PROPOSITION BANNER (NEW - Clear messaging) ====================
+// ==================== VALUE PROPOSITION BANNER ====================
 const ValueProposition = () => {
   return (
     <div className="bg-indigo-50 border-b border-indigo-100">
@@ -142,7 +142,7 @@ const ValueProposition = () => {
   );
 };
 
-// ==================== HERO SECTION (Crystal clear messaging) ====================
+// ==================== HERO SECTION ====================
 const HeroSection = () => {
   const navigate = useNavigate();
 
@@ -157,7 +157,6 @@ const HeroSection = () => {
           transition={{ duration: 0.5 }}
           className="text-center max-w-4xl mx-auto"
         >
-          {/* What we do - crystal clear */}
           <div className="mb-6">
             <span className="inline-block px-4 py-1.5 bg-indigo-100 text-indigo-700 rounded-full text-sm font-semibold tracking-wide">
               📄 PDF Processing for E-commerce Sellers
@@ -190,7 +189,6 @@ const HeroSection = () => {
             </button>
           </div>
 
-          {/* Social proof */}
           <div className="mt-12 pt-8 border-t border-gray-100">
             <p className="text-sm text-gray-400 mb-4">TRUSTED BY SELLERS ON</p>
             <div className="flex flex-wrap justify-center gap-8 items-center opacity-70">
@@ -207,7 +205,7 @@ const HeroSection = () => {
   );
 };
 
-// ==================== WHAT WE DO SECTION (Clear breakdown) ====================
+// ==================== WHAT WE DO SECTION ====================
 const WhatWeDoSection = () => {
   const services = [
     {
@@ -285,7 +283,7 @@ const WhatWeDoSection = () => {
   );
 };
 
-// ==================== PROBLEM VS SOLUTION (Builds understanding) ====================
+// ==================== PROBLEM VS SOLUTION ====================
 const ProblemSolution = () => {
   return (
     <div className="py-16 bg-white">
@@ -490,7 +488,8 @@ const AppLayout = ({ children, isHistoryOpen, onToggleHistory }) => {
   return (
     <div className="relative min-h-screen bg-white">
       <HistorySidebar isOpen={isHistoryOpen} onClose={() => onToggleHistory(false)} />
-      <div className={`transition-all duration-200 ${isHistoryOpen ? 'md:ml-80' : ''}`}>
+      {/* ✅ CHANGED: margin-left now exactly matches sidebar width (380px) */}
+      <div className={`transition-all duration-200 ${isHistoryOpen ? 'md:ml-[380px]' : ''}`}>
         {children}
       </div>
     </div>
@@ -499,7 +498,7 @@ const AppLayout = ({ children, isHistoryOpen, onToggleHistory }) => {
 
 // ==================== MAIN APP ====================
 export default function App() {
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(true); // open by default
   const location = useLocation();
 
   const toggleHistory = () => setIsHistoryOpen(prev => !prev);
@@ -520,7 +519,7 @@ export default function App() {
           <Route path="/JioMartCropper" element={<JioMartCropper />} />
           <Route path="/ContactUs" element={<ContactUs />} />
           <Route path="/crop" element={<PdfCropper />} />
-          <Route path="/admin" element={<AdminPanel />} /> {/* Add this route */}
+          <Route path="/admin" element={<AdminPanel />} />
         </Routes>
       </AppLayout>
     </>
