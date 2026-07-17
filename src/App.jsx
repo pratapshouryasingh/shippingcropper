@@ -494,7 +494,9 @@ const AppLayout = ({ children, isHistoryOpen, onToggleHistory }) => {
         <button
           onClick={() => onToggleHistory(true)}
           className="
-            fixed left-0 top-1/2 -translate-y-1/2
+            fixed left-0
+            top-[calc(50%+2rem)] md:top-[calc(50%+2.5rem)]
+            -translate-y-1/2
             z-[60]
             bg-indigo-600
             hover:bg-indigo-700
@@ -525,7 +527,6 @@ const AppLayout = ({ children, isHistoryOpen, onToggleHistory }) => {
 
 // ==================== MAIN APP ====================
 export default function App() {
-  // ✅ Keep desktop open, mobile closed
   const [isHistoryOpen, setIsHistoryOpen] = useState(() => window.innerWidth >= 768);
   const location = useLocation();
 
