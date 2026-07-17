@@ -488,7 +488,34 @@ const AppLayout = ({ children, isHistoryOpen, onToggleHistory }) => {
   return (
     <div className="relative min-h-screen bg-white">
       <HistorySidebar isOpen={isHistoryOpen} onClose={() => onToggleHistory(false)} />
-      {/* ✅ CHANGED: margin-left now exactly matches sidebar width (380px) */}
+      
+      {/* Permanent History Handle (visible when sidebar is closed) */}
+      {!isHistoryOpen && (
+        <button
+          onClick={() => onToggleHistory(true)}
+          className="
+            fixed left-0 top-1/2 -translate-y-1/2
+            z-[60]
+            bg-indigo-600
+            hover:bg-indigo-700
+            text-white
+            rounded-r-xl
+            shadow-xl
+            px-2 py-4
+            transition-all duration-300
+            flex items-center justify-center
+            [writing-mode:vertical-rl]
+            rotate-180
+            tracking-wider
+            font-medium
+            text-sm
+          "
+        >
+          <i className="fas fa-history mb-2"></i>
+          History
+        </button>
+      )}
+
       <div className={`transition-all duration-200 ${isHistoryOpen ? 'md:ml-[380px]' : ''}`}>
         {children}
       </div>
@@ -498,7 +525,8 @@ const AppLayout = ({ children, isHistoryOpen, onToggleHistory }) => {
 
 // ==================== MAIN APP ====================
 export default function App() {
-  const [isHistoryOpen, setIsHistoryOpen] = useState(true); // open by default
+  // ✅ Keep desktop open, mobile closed
+  const [isHistoryOpen, setIsHistoryOpen] = useState(() => window.innerWidth >= 768);
   const location = useLocation();
 
   const toggleHistory = () => setIsHistoryOpen(prev => !prev);
