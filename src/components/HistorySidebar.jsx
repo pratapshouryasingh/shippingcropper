@@ -122,7 +122,8 @@ const HistorySidebar = ({ isOpen, onClose }) => {
   return (
     <div
       className={`
-        fixed top-0 left-0 h-full
+        fixed top-16 md:top-20 left-0
+        h-[calc(100vh-4rem)] md:h-[calc(100vh-5rem)]
         w-[340px] md:w-[380px]
         bg-white shadow-2xl
         z-50
