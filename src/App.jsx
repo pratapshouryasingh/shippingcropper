@@ -501,7 +501,7 @@ const AppLayout = ({ children, isHistoryOpen, onToggleHistory }) => {
             bg-indigo-600
             hover:bg-indigo-700
             text-white
-            rounded-r-xl
+            rounded-l-xl
             shadow-xl
             px-2 py-4
             transition-all duration-300
