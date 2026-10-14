@@ -457,33 +457,33 @@ export default function AdminPanel() {
   // ==================== RENDER ====================
   if (!isLoggedIn) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-        <form onSubmit={(e) => { e.preventDefault(); if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) { setIsLoggedIn(true); } else { toast.error("Invalid credentials"); } }} className="p-8 shadow-lg rounded-xl bg-white dark:bg-gray-800 w-full max-w-md">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 text-center">Admin Login</h2>
+      <div className="flex items-center justify-center min-h-screen bg-zinc-50">
+        <form onSubmit={(e) => { e.preventDefault(); if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) { setIsLoggedIn(true); } else { toast.error("Invalid credentials"); } }} className="p-8 shadow-lg rounded-xl bg-white border border-zinc-200 w-full max-w-md">
+          <h2 className="text-2xl font-bold text-black mb-6 text-center">⚙️ Admin Login</h2>
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-            <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" required />
+            <label className="block text-sm font-medium text-zinc-700 mb-1">Email</label>
+            <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 border border-zinc-300 rounded-lg bg-white text-black focus:ring-2 focus:ring-black focus:outline-none" required />
           </div>
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
-            <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" required />
+            <label className="block text-sm font-medium text-zinc-700 mb-1">Password</label>
+            <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border border-zinc-300 rounded-lg bg-white text-black focus:ring-2 focus:ring-black focus:outline-none" required />
           </div>
-          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition">Login</button>
+          <button type="submit" className="w-full bg-black hover:bg-zinc-800 text-white font-medium py-3 px-4 rounded-lg transition">Login</button>
         </form>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'dark' : ''}`}>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6 transition-colors duration-200">
+    <div className="min-h-screen bg-zinc-50">
+      <div className="min-h-screen bg-zinc-50 p-4 md:p-6">
         <Toaster position="top-right" richColors closeButton />
 
         {/* ===== HEADER ===== */}
         <header className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">🛒</span>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Cropper Admin</h1>
+            <div className="w-9 h-9 bg-black text-white rounded-lg flex items-center justify-center font-bold">⚙</div>
+            <h1 className="text-2xl font-bold text-black">Cropper Admin</h1>
           </div>
           <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
             <div className="relative flex-1 md:w-64">
@@ -493,7 +493,7 @@ export default function AdminPanel() {
                 placeholder="Search files, users, job ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-zinc-300 rounded-lg bg-white text-black focus:ring-2 focus:ring-black focus:outline-none"
               />
             </div>
             <button
@@ -509,13 +509,13 @@ export default function AdminPanel() {
                 }
               }}
               disabled={refreshing}
-              className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition disabled:opacity-50"
+              className="p-2 rounded-lg bg-white border border-zinc-300 hover:bg-zinc-100 transition disabled:opacity-50"
             >
               <span className={refreshing ? "animate-spin" : ""}>🔄</span>
             </button>
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+              className="p-2 rounded-lg bg-white border border-zinc-300 hover:bg-zinc-100 transition"
             >
               {darkMode ? "☀️" : "🌙"}
             </button>
@@ -541,13 +541,13 @@ export default function AdminPanel() {
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3">
             {/* ===== FILTERS ===== */}
-            <div className="flex flex-wrap items-center gap-3 mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="flex flex-wrap items-center gap-3 mb-4 p-4 bg-white rounded-lg shadow-sm border border-zinc-200">
               <div className="flex items-center gap-1">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Tool</span>
                 <select
                   value={filterTool}
                   onChange={(e) => setFilterTool(e.target.value)}
-                  className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  className="px-3 py-1.5 border border-zinc-300 rounded-lg bg-white text-black text-sm"
                 >
                   {tools.map(t => <option key={t} value={t}>{t === "All" ? "All" : t}</option>)}
                 </select>
@@ -557,7 +557,7 @@ export default function AdminPanel() {
                 <select
                   value={filterUser}
                   onChange={(e) => setFilterUser(e.target.value)}
-                  className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  className="px-3 py-1.5 border border-zinc-300 rounded-lg bg-white text-black text-sm"
                 >
                   {userOptions.map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
@@ -567,7 +567,7 @@ export default function AdminPanel() {
                 <select
                   value={filterDate}
                   onChange={(e) => setFilterDate(e.target.value)}
-                  className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  className="px-3 py-1.5 border border-zinc-300 rounded-lg bg-white text-black text-sm"
                 >
                   <option value="All">All</option>
                   <option value="Today">Today</option>
@@ -580,7 +580,7 @@ export default function AdminPanel() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  className="px-3 py-1.5 border border-zinc-300 rounded-lg bg-white text-black text-sm"
                 >
                   <option value="date-desc">Newest</option>
                   <option value="date-asc">Oldest</option>
@@ -594,12 +594,12 @@ export default function AdminPanel() {
 
             {/* ===== BULK ACTIONS TOOLBAR ===== */}
             {selectedFiles.length > 0 && (
-              <div className="flex items-center gap-3 mb-4 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
-                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{selectedFiles.length} selected</span>
+              <div className="flex items-center gap-3 mb-4 p-3 bg-zinc-100 rounded-lg border border-zinc-200">
+                <span className="text-sm font-medium text-black">{selectedFiles.length} selected</span>
                 <button
                   onClick={downloadSelected}
                   disabled={deleting}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition disabled:opacity-50"
+                  className="px-3 py-1.5 bg-black hover:bg-zinc-800 text-white rounded-lg text-sm transition disabled:opacity-50"
                 >
                   📥 Download
                 </button>
@@ -612,7 +612,7 @@ export default function AdminPanel() {
                 </button>
                 <button
                   onClick={() => setSelectedFiles([])}
-                  className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm transition"
+                  className="px-3 py-1.5 bg-white border border-zinc-300 text-black rounded-lg text-sm transition"
                 >
                   Cancel
                 </button>
@@ -620,7 +620,7 @@ export default function AdminPanel() {
             )}
 
             {/* ===== TABLE ===== */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden">
               {loading ? (
                 <div className="p-8 space-y-4">
                   {[...Array(5)].map((_, i) => (
@@ -653,7 +653,7 @@ export default function AdminPanel() {
                               if (e.target.checked) setSelectedFiles(filteredFiles);
                               else setSelectedFiles([]);
                             }}
-                            className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                            className="h-4 w-4 text-black rounded focus:ring-black"
                           />
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">File</th>
@@ -680,14 +680,14 @@ export default function AdminPanel() {
                                     setSelectedFiles(prev => [...prev, file]);
                                   }
                                 }}
-                                className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                                className="h-4 w-4 rounded focus:ring-black"
                                 disabled={isDeleting}
                               />
                             </td>
                             <td className="px-4 py-3">
                               <button
                                 onClick={() => { setPreviewFile(file); setIsPreviewModalOpen(true); }}
-                                className="text-blue-600 dark:text-blue-400 hover:underline truncate max-w-xs flex items-center gap-1"
+                                className="text-black hover:underline truncate max-w-xs flex items-center gap-1"
                               >
                                 <span>{file.toolIcon}</span>
                                 <span className="truncate">{file.name}</span>
@@ -712,7 +712,7 @@ export default function AdminPanel() {
                             <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{formatSize(file.size)}</td>
                             <td className="px-4 py-3 text-right">
                               {isDeleting ? (
-                                <span className="inline-block animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full"></span>
+                                <span className="inline-block animate-spin w-5 h-5 border-2 border-black border-t-transparent rounded-full"></span>
                               ) : (
                                 <div className="flex items-center justify-end gap-2">
                                   <a href={file.url} download className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition" title="Download">⬇</a>
@@ -746,7 +746,7 @@ export default function AdminPanel() {
 
           {/* ===== RIGHT PANEL: RECENT ACTIVITY ===== */}
           <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 sticky top-4">
+            <div className="bg-white rounded-xl shadow-sm border border-zinc-200 p-4 sticky top-4">
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-4">Recent Activity</h3>
               <div className="space-y-3 max-h-[600px] overflow-y-auto">
                 {recentActivity.length === 0 ? (
@@ -784,7 +784,7 @@ export default function AdminPanel() {
 // ==================== STAT CARD COMPONENT ====================
 function StatCard({ icon, label, value, sub, progress }) {
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition">
+    <div className="bg-white border border-zinc-200 p-4 rounded-xl shadow-sm transition">
       <div className="flex items-center gap-3">
         <span className="text-2xl">{icon}</span>
         <div>
@@ -795,7 +795,7 @@ function StatCard({ icon, label, value, sub, progress }) {
       </div>
       {progress !== undefined && (
         <div className="mt-2 w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-          <div className="h-full bg-blue-600 rounded-full" style={{ width: `${progress}%` }}></div>
+          <div className="h-full bg-black rounded-full" style={{ width: `${progress}%` }}></div>
         </div>
       )}
     </div>

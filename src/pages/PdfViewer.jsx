@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { GlobalWorkerOptions, getDocument } from "pdfjs-dist";
 import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import JSZip from "jszip";
@@ -32,6 +33,7 @@ const pdfViewerInitialState = {
 const pdfViewerStateStore = createPageStateStore(pdfViewerInitialState);
 
 export default function UniversalConverter() {
+  const navigate = useNavigate();
   const { isSignedIn } = useUser();
   const { openSignIn } = useClerk();
   const restoredState = pdfViewerStateStore.getState();
@@ -554,10 +556,10 @@ File Size: ${formatFileSize(fileSize)}
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+    <div className="min-h-screen bg-white">
       {/* Processing Bar */}
       {isProcessing && (
-        <div className="sticky top-0 z-50 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg">
+        <div className="sticky top-0 z-50 bg-black text-white shadow-lg">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex items-center justify-center gap-3">
               <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24">
@@ -571,14 +573,39 @@ File Size: ${formatFileSize(fileSize)}
       )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
+        {/* Quick Tool Navigation (At Top - No Scrolling Needed) */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-6 scrollbar-none">
+          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider mr-1 hidden sm:inline">Tools:</span>
+          {[
+            { name: "Flipkart", path: "/FlipkartCropper", icon: "🛒" },
+            { name: "Meesho", path: "/MeshooCropper", icon: "📦" },
+            { name: "JioMart", path: "/JioMartCropper", icon: "🏪" },
+            { name: "PDF Cropper", path: "/crop", icon: "✂️" },
+            { name: "PDF Converter", path: "/PdfViewer", icon: "🔄" },
+          ].map((tool) => (
+            <button
+              key={tool.name}
+              onClick={() => navigate(tool.path)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer flex-shrink-0 ${
+                tool.name === "PDF Converter"
+                  ? "bg-black text-white shadow-sm"
+                  : "bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 text-zinc-800"
+              }`}
+            >
+              <span>{tool.icon}</span>
+              <span>{tool.name}</span>
+            </button>
+          ))}
+        </div>
+
         {!hasFile && (
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="w-full max-w-3xl">
               <div
                 className={`relative bg-white rounded-3xl shadow-xl border-2 transition-all duration-300 ${
                   isDragging
-                    ? "border-indigo-500 border-dashed scale-[1.02] shadow-2xl"
-                    : "border-slate-200 border-dashed"
+                    ? "border-black border-dashed scale-[1.02] shadow-2xl"
+                    : "border-zinc-200 border-dashed"
                 }`}
                 onDragOver={(e) => {
                   e.preventDefault();
@@ -588,8 +615,8 @@ File Size: ${formatFileSize(fileSize)}
                 onDrop={onDrop}
               >
                 <div className="p-8 sm:p-12 lg:p-16 text-center">
-                  <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-violet-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-md">
-                    <svg className="w-10 h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-20 h-20 bg-zinc-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-md">
+                    <svg className="w-10 h-10 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                   </div>
@@ -611,7 +638,7 @@ File Size: ${formatFileSize(fileSize)}
                     />
                     <label
                       htmlFor="fileInput"
-                      className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-8 py-4 rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all cursor-pointer w-full sm:w-auto"
+                      className="inline-flex items-center justify-center gap-2 bg-black text-white px-8 py-4 rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all cursor-pointer w-full sm:w-auto"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -623,7 +650,7 @@ File Size: ${formatFileSize(fileSize)}
 
                   <div className="flex flex-wrap gap-2 justify-center mt-8">
                     {["PDF", "DOCX", "JPG", "PNG", "TXT"].map((format) => (
-                      <span key={format} className="px-4 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-sm font-medium border border-indigo-100">
+                      <span key={format} className="px-4 py-1.5 bg-zinc-100 text-black rounded-full text-sm font-medium border border-zinc-200">
                         {format}
                       </span>
                     ))}
@@ -640,11 +667,11 @@ File Size: ${formatFileSize(fileSize)}
             <div className="lg:col-span-1">
               <div className="space-y-4">
                 {/* Compact File Card */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+                <div className="bg-white rounded-2xl shadow-sm border border-zinc-200 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <FileText className="w-5 h-5 text-indigo-500 flex-shrink-0" />
+                        <FileText className="w-5 h-5 text-black flex-shrink-0" />
                         <h3 className="font-bold text-slate-800 truncate text-sm">{fileName}</h3>
                       </div>
                       <p className="text-xs text-slate-500 mt-1">
@@ -654,7 +681,7 @@ File Size: ${formatFileSize(fileSize)}
                     <div className="flex gap-1 flex-shrink-0">
                       <button
                         onClick={handleNewFile}
-                        className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors p-1.5 rounded-lg"
+                        className="text-zinc-400 hover:text-black hover:bg-zinc-100 transition-colors p-1.5 rounded-lg"
                         title="Convert new file"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -685,7 +712,7 @@ File Size: ${formatFileSize(fileSize)}
                 )}
 
                 {/* Conversion Buttons - horizontal grid */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+                <div className="bg-white rounded-2xl shadow-sm border border-zinc-200 p-4">
                   <h3 className="font-bold text-slate-800 mb-3 text-sm">Convert to</h3>
                   <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
                     {conversionOptions.map((option) => (
@@ -693,12 +720,7 @@ File Size: ${formatFileSize(fileSize)}
                         key={option.name}
                         onClick={() => handleDownloadAction(option.action)}
                         disabled={isProcessing}
-                        className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md hover:scale-[1.02] active:scale-95 ${
-                          option.color === 'emerald' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' :
-                          option.color === 'blue' ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' :
-                          option.color === 'indigo' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100' :
-                          'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                        }`}
+                        className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md hover:scale-[1.02] active:scale-95 bg-zinc-50 text-black border-zinc-200 hover:bg-black hover:text-white hover:border-black`}
                       >
                         <option.icon className="w-5 h-5" />
                         <span>{option.name}</span>
@@ -707,8 +729,8 @@ File Size: ${formatFileSize(fileSize)}
                   </div>
 
                   {!isSignedIn && (
-                    <div className="mt-3 p-2 bg-amber-50 rounded-xl border border-amber-100 text-center">
-                      <p className="text-xs text-amber-700 font-medium">
+                    <div className="mt-3 p-2 bg-zinc-50 rounded-xl border border-zinc-200 text-center">
+                      <p className="text-xs text-black font-medium">
                         🔒 Sign in to enable downloads
                       </p>
                     </div>
@@ -727,8 +749,8 @@ File Size: ${formatFileSize(fileSize)}
                       onClick={() => setActiveTab("preview")}
                       className={`flex-1 px-4 py-3 text-sm font-semibold transition-all ${
                         activeTab === "preview"
-                          ? "text-indigo-600 border-b-2 border-indigo-600 bg-white"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                          ? "text-black border-b-2 border-black bg-white"
+                          : "text-zinc-500 hover:text-black hover:bg-zinc-100"
                       }`}
                     >
                       <span className="flex items-center justify-center gap-2">
@@ -740,10 +762,10 @@ File Size: ${formatFileSize(fileSize)}
                     </button>
                     <button
                       onClick={() => setActiveTab("text")}
-                      className={`flex-1 px-4 py-3 text-sm font-semibold transition-all border-l border-slate-200 ${
+                      className={`flex-1 px-4 py-3 text-sm font-semibold transition-all border-l border-zinc-200 ${
                         activeTab === "text"
-                          ? "text-indigo-600 border-b-2 border-indigo-600 bg-white"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                          ? "text-black border-b-2 border-black bg-white"
+                          : "text-zinc-500 hover:text-black hover:bg-zinc-100"
                       }`}
                     >
                       <span className="flex items-center justify-center gap-2">

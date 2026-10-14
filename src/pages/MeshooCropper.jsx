@@ -273,7 +273,7 @@ const MeshooCropper = () => {
   const isOverLimit = !isTotalSizeValid(files);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-pink-50/30">
+    <div className="min-h-screen bg-white">
       <Helmet>
         <title>Meesho Label Cropper | Professional Dashboard</title>
         <meta 
@@ -290,40 +290,65 @@ const MeshooCropper = () => {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.4 }}
         className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6"
       >
-        {/* Compact Header */}
-        <div className="flex items-center justify-between mb-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-zinc-200">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-xl">📦</span>
+            <div className="w-10 h-10 bg-black text-white rounded-lg flex items-center justify-center font-bold text-lg shadow-sm">
+              🏪
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Meesho Label Cropper</h1>
-              <p className="text-xs text-gray-500">Professional PDF cropping for sellers</p>
+              <h1 className="text-2xl font-black text-black tracking-tight">Meesho Label Cropper</h1>
+              <p className="text-xs text-zinc-500 font-medium">Automatic return label & invoice page cropping for Meesho sellers</p>
             </div>
           </div>
           <div className="hidden md:flex items-center gap-2">
-            <span className="px-3 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">✓ 8K+ Sellers</span>
-            <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">⚡ Enterprise</span>
+            <span className="px-3 py-1 bg-black text-white text-xs rounded font-bold uppercase tracking-wider">✓ Thermal Ready</span>
+            <span className="px-3 py-1 bg-zinc-100 text-black border border-zinc-300 text-xs rounded font-bold uppercase tracking-wider">⚡ Instant Crop</span>
           </div>
         </div>
 
-        {/* Two Column Layout - SWAPPED: Upload on LEFT, Settings on RIGHT */}
+        {/* Quick Tool Navigation (At Top - No Scrolling Needed) */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-6 scrollbar-none">
+          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider mr-1 hidden sm:inline">Tools:</span>
+          {[
+            { name: "Flipkart", path: "/FlipkartCropper", icon: "🛒" },
+            { name: "Meesho", path: "/MeshooCropper", icon: "📦" },
+            { name: "JioMart", path: "/JioMartCropper", icon: "🏪" },
+            { name: "PDF Cropper", path: "/crop", icon: "✂️" },
+            { name: "PDF Converter", path: "/PdfViewer", icon: "🔄" },
+          ].map((tool) => (
+            <button
+              key={tool.name}
+              onClick={() => navigate(tool.path)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer flex-shrink-0 ${
+                tool.name === "Meesho"
+                  ? "bg-black text-white shadow-sm"
+                  : "bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 text-zinc-800"
+              }`}
+            >
+              <span>{tool.icon}</span>
+              <span>{tool.name}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Two Column Layout */}
         <div className="grid lg:grid-cols-12 gap-6">
           
-          {/* LEFT COLUMN: Upload & Processing Area (70%) */}
+          {/* LEFT COLUMN: Upload & Processing Area */}
           <div className="lg:col-span-8">
             {processedFiles.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden">
                 <form onSubmit={handleSubmit}>
                   {/* Drag & Drop Area */}
                   <div
-                    className={`relative border-2 border-dashed m-4 rounded-lg transition-all duration-300 cursor-pointer
+                    className={`relative border-2 border-dashed m-4 rounded-lg transition-all duration-200 cursor-pointer
                       ${dragActive 
-                        ? "border-pink-500 bg-pink-50" 
-                        : "border-gray-300 bg-gray-50 hover:border-pink-400 hover:bg-pink-50/30"
+                        ? "border-black bg-zinc-100" 
+                        : "border-zinc-300 bg-zinc-50 hover:border-black hover:bg-zinc-100/50"
                       }`}
                     onDragEnter={handleDrag}
                     onDragLeave={handleDrag}
@@ -341,39 +366,39 @@ const MeshooCropper = () => {
                     />
                     
                     <div className="flex flex-col items-center py-8 px-4">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 transition-all duration-300
-                        ${dragActive ? "bg-pink-200 scale-105" : "bg-pink-100"}`}>
-                        <svg className="w-6 h-6 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center mb-3 transition-all duration-200
+                        ${dragActive ? "bg-black text-white scale-105" : "bg-black text-white"}`}>
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                         </svg>
                       </div>
-                      <p className="text-sm font-semibold text-gray-700 mb-1">
-                        {dragActive ? "Drop PDFs here" : "Drag & drop PDF files"}
+                      <p className="text-sm font-bold text-black mb-1">
+                        {dragActive ? "Drop Meesho PDFs here" : "Drag & drop Meesho label PDFs"}
                       </p>
-                      <p className="text-xs text-gray-500">or click to browse</p>
+                      <p className="text-xs text-zinc-500 font-medium">or click to browse from device</p>
                       <div className="flex gap-2 mt-3">
-                        <span className="text-xs px-2 py-0.5 bg-gray-100 rounded text-gray-600">PDF only</span>
-                        <span className="text-xs px-2 py-0.5 bg-gray-100 rounded text-gray-600">Max 30MB total</span>
+                        <span className="text-xs px-2 py-0.5 bg-zinc-100 border border-zinc-200 rounded text-zinc-700 font-semibold">PDF Format</span>
+                        <span className="text-xs px-2 py-0.5 bg-zinc-100 border border-zinc-200 rounded text-zinc-700 font-semibold">Max 30MB</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* File List with Process Button at Top */}
+                  {/* File List */}
                   <AnimatePresence>
                     {files.length > 0 && (
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="mx-4 mb-4 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden"
+                        className="mx-4 mb-4 bg-zinc-50 rounded-lg border border-zinc-200 overflow-hidden"
                       >
                         {/* Header with Process Button */}
-                        <div className="px-3 py-2 bg-gray-100 border-b border-gray-200 flex items-center justify-between">
+                        <div className="px-3 py-2 bg-zinc-100 border-b border-zinc-200 flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
-                            <span className="text-sm font-medium text-gray-700">{files.length} file(s)</span>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs font-bold text-black">{files.length} file(s) selected</span>
+                            <span className="text-xs text-zinc-500">
                               Total: {currentTotalMB}MB / {maxSizeMB}MB
                             </span>
                           </div>
@@ -381,17 +406,17 @@ const MeshooCropper = () => {
                             <button
                               type="button"
                               onClick={clearAllFiles}
-                              className="text-xs text-red-500 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 transition"
+                              className="text-xs font-semibold text-zinc-600 hover:text-black px-2 py-1 rounded hover:bg-zinc-200 transition cursor-pointer"
                             >
                               Clear
                             </button>
                             <button
                               type="submit"
                               disabled={isProcessing || isOverLimit}
-                              className={`px-3 py-1 rounded-lg text-xs font-semibold text-white transition-all flex items-center gap-1.5 ${
+                              className={`px-4 py-1.5 rounded-md text-xs font-bold text-white transition-all flex items-center gap-1.5 cursor-pointer ${
                                 isProcessing || isOverLimit
-                                  ? "bg-gray-400 cursor-not-allowed" 
-                                  : "bg-gradient-to-r from-pink-500 to-pink-600 hover:shadow-md"
+                                  ? "bg-zinc-400 cursor-not-allowed" 
+                                  : "bg-black hover:bg-zinc-800 border border-black shadow-sm"
                               }`}
                             >
                               {isProcessing ? (
@@ -419,7 +444,7 @@ const MeshooCropper = () => {
                           {files.map((file, index) => (
                             <div key={index} className="px-3 py-2 border-b border-gray-100 last:border-0 flex items-center justify-between hover:bg-white transition group">
                               <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <svg className="w-4 h-4 text-pink-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 text-zinc-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                 </svg>
                                 <p className="text-xs text-gray-700 truncate flex-1">{file.name}</p>
@@ -428,7 +453,7 @@ const MeshooCropper = () => {
                               <button
                                 type="button"
                                 onClick={() => removeFile(index)}
-                                className="ml-2 p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
+                                className="ml-2 p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition cursor-pointer"
                               >
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -461,7 +486,7 @@ const MeshooCropper = () => {
                         <span>{uploadProgress}%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                        <div className="bg-gradient-to-r from-pink-500 to-pink-600 h-1.5 rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
+                        <div className="bg-black h-1.5 rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
                       </div>
                       {uploadSpeed && <p className="text-xs text-gray-400 mt-1">{uploadSpeed} KB/s</p>}
                     </div>
@@ -557,9 +582,9 @@ const MeshooCropper = () => {
           <div className="lg:col-span-4 space-y-4">
             {/* Settings Card */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="px-4 py-3 bg-gradient-to-r from-pink-50 to-pink-50 border-b border-gray-200">
+              <div className="px-4 py-3 bg-zinc-50 border-b border-gray-200">
                 <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
@@ -577,7 +602,7 @@ const MeshooCropper = () => {
                     <span className="text-xs text-gray-700 capitalize group-hover:text-gray-900">
                       {key.replace(/_/g, " ")}
                     </span>
-                    <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none ${value ? 'bg-pink-500' : 'bg-gray-300'}`}>
+                    <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none ${value ? 'bg-zinc-900' : 'bg-gray-300'}`}>
                       <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform duration-200 ${value ? 'translate-x-5' : 'translate-x-1'}`} />
                     </div>
                   </div>
@@ -586,56 +611,34 @@ const MeshooCropper = () => {
             </div>
 
             {/* Quick Tips Card */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100 p-4">
+            <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-4">
               <div className="flex items-start gap-2">
-                <svg className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-zinc-700 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-800 text-xs mb-2">Quick Tips</h3>
-                  <div className="space-y-1.5 text-xs text-gray-600">
+                  <div className="space-y-1.5 text-xs text-zinc-600">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-blue-500">•</span>
+                      <span className="text-zinc-500">•</span>
                       <span>Total PDF size limit: 30MB</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-blue-500">•</span>
+                      <span className="text-zinc-500">•</span>
                       <span>Upload multiple PDFs for batch processing</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-blue-500">•</span>
+                      <span className="text-zinc-500">•</span>
                       <span>Settings apply to all files in batch</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-blue-500">•</span>
+                      <span className="text-zinc-500">•</span>
                       <span>Files auto-deleted after processing</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Platform Navigation - Bottom */}
-        <div className="mt-6 pt-4 border-t border-gray-200">
-          <p className="text-xs text-gray-500 text-center mb-3">Other Platforms</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {[
-              { name: "Flipkart", path: "/FlipkartCropper", icon: "🛒" },
-              { name: "JioMart", path: "/JioMartCropper", icon: "🏪" },
-              { name: "PDF Cropper", path: "/crop", icon: "✂️" },
-              { name: "PDF Converter", path: "/PdfViewer", icon: "🔄" }
-            ].map((tool) => (
-              <button
-                key={tool.name}
-                onClick={() => navigate(tool.path)}
-                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition flex items-center gap-1.5"
-              >
-                <span>{tool.icon}</span>
-                <span>{tool.name}</span>
-              </button>
-            ))}
           </div>
         </div>
       </motion.div>
@@ -649,7 +652,7 @@ const MeshooCropper = () => {
           border-radius: 10px;
         }
         .custom-scroll::-webkit-scrollbar-thumb {
-          background: #ec4899;
+          background: #18181b;
           border-radius: 10px;
         }
       `}</style>

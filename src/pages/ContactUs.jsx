@@ -1,4 +1,3 @@
-// ContactUs.jsx
 import { useState } from "react";
 import { motion } from "framer-motion";
 import emailjs from "@emailjs/browser";
@@ -23,15 +22,15 @@ const ContactUs = () => {
 
     emailjs
       .send(
-        import.meta.env.VITE_EMAILJS_SERVICE_ID,   // ✅ from .env
-        import.meta.env.VITE_EMAILJS_TEMPLATE_ID, // ✅ from .env
+        import.meta.env.VITE_EMAILJS_SERVICE_ID,
+        import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
         {
           from_name: formData.name,
           from_email: formData.email,
           subject: formData.subject,
           message: formData.message,
         },
-        import.meta.env.VITE_EMAILJS_PUBLIC_KEY   // ✅ from .env
+        import.meta.env.VITE_EMAILJS_PUBLIC_KEY
       )
       .then(() => {
         alert("✅ Message sent successfully!");
@@ -44,96 +43,96 @@ const ContactUs = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-zinc-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="bg-white shadow-2xl rounded-2xl overflow-hidden"
+          transition={{ duration: 0.4 }}
+          className="bg-white shadow-xl rounded-2xl border border-zinc-200 overflow-hidden"
         >
           <div className="md:flex">
             {/* Sidebar */}
-            <div className="md:w-2/5 bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-10 flex flex-col justify-between">
+            <div className="md:w-2/5 bg-black text-white p-10 flex flex-col justify-between border-r border-zinc-900">
               <div>
                 <motion.h2 
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2, duration: 0.5 }}
-                  className="text-3xl font-bold mb-6"
+                  transition={{ delay: 0.1, duration: 0.4 }}
+                  className="text-3xl font-black mb-4 tracking-tight"
                 >
                   Get in Touch
                 </motion.h2>
                 <motion.p 
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3, duration: 0.5 }}
-                  className="mb-8 text-blue-100"
+                  transition={{ delay: 0.2, duration: 0.4 }}
+                  className="mb-8 text-zinc-300 text-sm leading-relaxed"
                 >
-                  Have questions or need support? We'd love to hear from you. Send us a message and we'll respond as soon as possible.
+                  Have questions, custom tool requests, or support needs? Send us a message and we'll reply as soon as possible.
                 </motion.p>
               </div>
               
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.5, duration: 0.5 }}
-                className="space-y-6 mt-8"
+                transition={{ delay: 0.3, duration: 0.4 }}
+                className="space-y-6 mt-8 text-sm"
               >
                 <div className="flex items-start">
-                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mr-4">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-9 h-9 bg-zinc-800 border border-zinc-700 rounded-lg flex items-center justify-center flex-shrink-0 mr-3.5">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                   </div>
                   <div>
-                    <h3 className="font-semibold">Email</h3>
-                    <p className="text-blue-100">shippinglabelcrop@gmail.com</p>
+                    <h3 className="font-bold text-white text-xs uppercase tracking-wider">Email</h3>
+                    <p className="text-zinc-300 text-xs mt-0.5">shippinglabelcrop@gmail.com</p>
                   </div>
                 </div>
 
                 <div className="flex items-start">
-                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mr-4">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-9 h-9 bg-zinc-800 border border-zinc-700 rounded-lg flex items-center justify-center flex-shrink-0 mr-3.5">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                   </div>
                   <div>
-                    <h3 className="font-semibold">Address</h3>
-                    <p className="text-blue-100">India</p>
+                    <h3 className="font-bold text-white text-xs uppercase tracking-wider">Location</h3>
+                    <p className="text-zinc-300 text-xs mt-0.5">India</p>
                   </div>
                 </div>
               </motion.div>
             </div>
 
             {/* Form */}
-            <div className="md:w-3/5 p-10">
+            <div className="md:w-3/5 p-8 md:p-10">
               <motion.h1 
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="text-3xl font-bold text-gray-800 mb-2"
+                transition={{ duration: 0.4 }}
+                className="text-2xl font-black text-black mb-1.5"
               >
-                Contact Us
+                Send Us a Message
               </motion.h1>
               <motion.p 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.2, duration: 0.5 }}
-                className="text-gray-600 mb-8"
+                transition={{ delay: 0.1, duration: 0.4 }}
+                className="text-zinc-600 text-xs mb-8"
               >
-                Fill out the form and we'll be in touch soon
+                Fill out the details below and we will reach out shortly.
               </motion.p>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <motion.div
-                    initial={{ opacity: 0, x: -20 }}
+                    initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3, duration: 0.5 }}
+                    transition={{ delay: 0.2, duration: 0.4 }}
                   >
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="name" className="block text-xs font-bold text-black uppercase tracking-wider mb-1.5">
                       Full Name
                     </label>
                     <input
@@ -143,17 +142,17 @@ const ContactUs = () => {
                       value={formData.name}
                       onChange={handleChange}
                       required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                      className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-lg text-sm text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
                       placeholder="Your full name"
                     />
                   </motion.div>
 
                   <motion.div
-                    initial={{ opacity: 0, x: 20 }}
+                    initial={{ opacity: 0, x: 10 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.4, duration: 0.5 }}
+                    transition={{ delay: 0.2, duration: 0.4 }}
                   >
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="email" className="block text-xs font-bold text-black uppercase tracking-wider mb-1.5">
                       Email Address
                     </label>
                     <input
@@ -163,7 +162,7 @@ const ContactUs = () => {
                       value={formData.email}
                       onChange={handleChange}
                       required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                      className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-lg text-sm text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
                       placeholder="your.email@example.com"
                     />
                   </motion.div>
@@ -172,9 +171,9 @@ const ContactUs = () => {
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5, duration: 0.5 }}
+                  transition={{ delay: 0.3, duration: 0.4 }}
                 >
-                  <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="subject" className="block text-xs font-bold text-black uppercase tracking-wider mb-1.5">
                     Subject
                   </label>
                   <input
@@ -184,7 +183,7 @@ const ContactUs = () => {
                     value={formData.subject}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                    className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-lg text-sm text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
                     placeholder="What is this regarding?"
                   />
                 </motion.div>
@@ -192,9 +191,9 @@ const ContactUs = () => {
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6, duration: 0.5 }}
+                  transition={{ delay: 0.4, duration: 0.4 }}
                 >
-                  <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="message" className="block text-xs font-bold text-black uppercase tracking-wider mb-1.5">
                     Message
                   </label>
                   <textarea
@@ -203,8 +202,8 @@ const ContactUs = () => {
                     value={formData.message}
                     onChange={handleChange}
                     required
-                    rows={5}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                    rows={4}
+                    className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-lg text-sm text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all resize-none"
                     placeholder="Tell us how we can help you..."
                   />
                 </motion.div>
@@ -212,11 +211,11 @@ const ContactUs = () => {
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.7, duration: 0.5 }}
+                  transition={{ delay: 0.5, duration: 0.4 }}
                 >
                   <button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-3 px-6 rounded-lg hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 font-medium text-lg shadow-md hover:shadow-lg"
+                    className="w-full bg-black text-white py-3 px-6 rounded-lg hover:bg-zinc-800 transition-all font-bold text-sm uppercase tracking-wider shadow-sm border border-black cursor-pointer"
                   >
                     Send Message
                   </button>

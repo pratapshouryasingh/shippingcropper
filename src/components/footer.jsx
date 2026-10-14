@@ -1,136 +1,107 @@
 import { Link } from "react-router-dom";
 
-const footer = () => {
+export default function Footer() {
   return (
-    <footer className="bg-gray-900 text-white mt-20">
+    <footer className="bg-black text-zinc-300 border-t border-zinc-800 mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* Company Info */}
+          {/* Brand Info */}
           <div className="col-span-1">
-            <h3 className="text-xl font-bold mb-4">Label Cropper</h3>
-            <p className="text-gray-400 mb-4">
-              Professional PDF processing tools for e-commerce sellers. 
-              Streamline your shipping label management with our powerful tools.
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-8 h-8 bg-white text-black font-black rounded flex items-center justify-center text-sm">
+                SLC
+              </div>
+              <span className="text-white font-extrabold text-lg tracking-tight">Shipping Label Cropper</span>
+            </div>
+            <p className="text-zinc-400 text-sm leading-relaxed mb-5">
+              High-performance, minimal PDF cropping and label conversion tools built for online sellers.
             </p>
-            <div className="flex space-x-4">
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
-                </svg>
+            <div className="flex space-x-3 text-zinc-400">
+              <a href="#" className="w-8 h-8 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center hover:bg-white hover:text-black hover:border-white transition-all">
+                <i className="fab fa-twitter text-sm"></i>
               </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-                </svg>
+              <a href="#" className="w-8 h-8 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center hover:bg-white hover:text-black hover:border-white transition-all">
+                <i className="fab fa-facebook-f text-sm"></i>
               </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
-                </svg>
+              <a href="#" className="w-8 h-8 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center hover:bg-white hover:text-black hover:border-white transition-all">
+                <i className="fab fa-linkedin-in text-sm"></i>
               </a>
             </div>
           </div>
 
-          {/* Tools */}
+          {/* E-commerce Tools */}
           <div className="col-span-1">
-            <h3 className="text-lg font-semibold mb-4">Our Tools</h3>
-            <ul className="space-y-2">
+            <h4 className="text-white font-bold mb-4 text-sm uppercase tracking-wider">E-commerce Tools</h4>
+            <ul className="space-y-2.5 text-sm">
               <li>
-                <Link 
-                  to="/meesho-cropper" 
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  Meesho Label Cropper
-                </Link>
-              </li>
-              <li>
-                <Link 
-                  to="/flipkart-cropper" 
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
+                <Link to="/FlipkartCropper" className="hover:text-white transition-colors">
                   Flipkart Label Cropper
                 </Link>
               </li>
               <li>
-                <Link 
-                  to="/jiomart-cropper" 
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
+                <Link to="/MeshooCropper" className="hover:text-white transition-colors">
+                  Meesho Label Cropper
+                </Link>
+              </li>
+              <li>
+                <Link to="/JioMartCropper" className="hover:text-white transition-colors">
                   JioMart Label Cropper
                 </Link>
               </li>
               <li>
-                <Link 
-                  to="/universal-converter" 
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  Universal Converter
+                <Link to="/crop" className="hover:text-white transition-colors">
+                  Selection Cropper
+                </Link>
+              </li>
+              <li>
+                <Link to="/PdfViewer" className="hover:text-white transition-colors">
+                  File Converter
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Features */}
+          {/* Quick Links */}
           <div className="col-span-1">
-            <h3 className="text-lg font-semibold mb-4">Features</h3>
-            <ul className="space-y-2">
-              <li className="text-gray-400">PDF Processing</li>
-              <li className="text-gray-400">Label Cropping</li>
-              <li className="text-gray-400">Batch Processing</li>
-              <li className="text-gray-400">Custom Settings</li>
-              <li className="text-gray-400">Secure Uploads</li>
-              <li className="text-gray-400">Fast Processing</li>
+            <h4 className="text-white font-bold mb-4 text-sm uppercase tracking-wider">Quick Navigation</h4>
+            <ul className="space-y-2.5 text-sm">
+              <li>
+                <Link to="/" className="hover:text-white transition-colors">Home</Link>
+              </li>
+              <li>
+                <Link to="/ContactUs" className="hover:text-white transition-colors">Contact Support</Link>
+              </li>
+              <li>
+                <Link to="/admin" className="hover:text-white transition-colors">Admin Panel</Link>
+              </li>
             </ul>
           </div>
 
-          {/* Contact/Newsletter */}
+          {/* Contact & Support */}
           <div className="col-span-1">
-            <h3 className="text-lg font-semibold mb-4">Stay Updated</h3>
-            <p className="text-gray-400 mb-4">
-              Subscribe to our newsletter for updates and new features.
+            <h4 className="text-white font-bold mb-4 text-sm uppercase tracking-wider">Support</h4>
+            <p className="text-zinc-400 text-sm mb-4 leading-relaxed">
+              Have feedback or need custom features for your store? Contact our support team.
             </p>
-            <form className="flex flex-col space-y-3">
-              <input
-                type="email"
-                placeholder="Your email address"
-                className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white font-medium transition-colors"
-              >
-                Subscribe
-              </button>
-            </form>
+            <Link
+              to="/ContactUs"
+              className="inline-block px-4 py-2 bg-white text-black hover:bg-zinc-200 rounded font-semibold text-xs tracking-wider uppercase transition-colors"
+            >
+              Contact Support
+            </Link>
           </div>
         </div>
 
         {/* Bottom Bar */}
-        <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-gray-400 text-sm">
-            © {new Date().getFullYear()} Label Cropper. All rights reserved.
-          </p>
-          <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-6 mt-4 md:mt-0">
-            <div className="text-gray-400 text-sm">
-              Developed by <a href="https://pratap-portfolio-beta.vercel.app/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Pratap</a>
-            </div>
-            <Link to="/admin" className="text-gray-400 hover:text-white text-sm transition-colors">
-              Admin Panel
-            </Link>
-            <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">
-              Privacy Policy
-            </a>
-            <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">
-              Terms of Service
-            </a>
-            <Link to="/ContactUs" className="text-gray-400 hover:text-white text-sm transition-colors">
-              Contact Us
-            </Link>
+        <div className="border-t border-zinc-900 mt-10 pt-6 flex flex-col md:flex-row justify-between items-center text-xs text-zinc-400 gap-4">
+          <p>© {new Date().getFullYear()} Shipping Label Cropper. All rights reserved.</p>
+          <div className="flex items-center space-x-6">
+            <Link to="/ContactUs" className="hover:text-white transition-colors">Contact</Link>
+            <Link to="/admin" className="hover:text-white transition-colors">Admin</Link>
+            <span>Developed by <a href="https://pratap-portfolio-beta.vercel.app/" target="_blank" rel="noopener noreferrer" className="text-zinc-200 hover:text-white underline font-medium">Pratap</a></span>
           </div>
         </div>
       </div>
     </footer>
   );
-};
-
-export default footer;
+}
